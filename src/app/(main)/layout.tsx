@@ -1,25 +1,20 @@
+
 import type { Metadata } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Poppins } from "next/font/google";
 import { Header } from "@/components/Header";
-import "./globals.css";
 import { Footer } from "@/components/Footer";
+import "./globals.css";
 
-const inter = Inter({
+const poppins = Poppins({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--ff-b",
-  display: "swap",
-});
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--ff-h",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-poppins",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "JEJAKPUBLIK - Laporkan Masalahnya. Pantau Prosesnya. Buktikan Hasilnya.",
+  title:
+    "JEJAKPUBLIK - Laporkan Masalahnya. Pantau Prosesnya. Buktikan Hasilnya.",
   description:
     "Setiap laporan warga punya jejak penanganan yang terbuka: siapa menangani, kapan, dan bukti apa yang ditunjukkan sebelum laporan dinyatakan selesai.",
 };
@@ -30,11 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="id"
-      className={`${inter.variable} ${plusJakartaSans.variable}`}
-    >
-      <body>
+    <html lang="id" className={poppins.variable}>
+      <body className="font-sans antialiased">
         <Header />
         {children}
         <Footer />

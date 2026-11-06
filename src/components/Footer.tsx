@@ -1,48 +1,99 @@
 import Link from "next/link";
+import { FiArrowUpRight, FiMapPin } from "react-icons/fi";
 
 export const Footer = () => {
   return (
-    <footer className="site-footer">
-      <div className="wrap">
-        <div className="foot-grid">
+    <footer className="bg-blue-700 text-blue-50">
+      <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:px-10">
+        <div className="grid grid-cols-1 gap-10 border-b border-blue-500 pb-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_0.8fr_1fr] lg:gap-16">
+
+          {/* Brand */}
           <div>
-            <Link className="logo" style={{ color: "#fff" }} href="/">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-xl font-bold tracking-wide text-white"
+            >
+              <FiMapPin className="text-blue-200" size={21} />
               JEJAKPUBLIK
             </Link>
-            <p style={{ marginTop: "12px", maxWidth: "340px" }}>
-              Platform pelaporan warga dengan jejak penanganan yang bisa dibuktikan.
+
+            <p className="mt-4 max-w-[340px] text-sm leading-7 text-blue-100">
+              Platform pelaporan warga dengan jejak penanganan yang bisa
+              dibuktikan.
             </p>
           </div>
+
+          {/* Platform */}
           <div>
-            <h4>Platform</h4>
-            <ul>
+            <h4 className="mb-4 text-sm font-semibold text-white">
+              Platform
+            </h4>
+
+            <ul className="space-y-3 text-sm text-blue-100">
               <li>
-                <Link href="/">Beranda</Link>
+                <Link href="/" className="transition-colors hover:text-white">
+                  Beranda
+                </Link>
               </li>
               <li>
-                <Link href="/laporan">Jelajahi Laporan</Link>
+                <Link
+                  href="/laporan"
+                  className="transition-colors hover:text-white"
+                >
+                  Jelajahi Laporan
+                </Link>
               </li>
               <li>
-                <Link href="/peta">Peta Laporan</Link>
+                <Link
+                  href="/peta"
+                  className="transition-colors hover:text-white"
+                >
+                  Peta Laporan
+                </Link>
               </li>
               <li>
-                <Link href="/transparansi">Transparansi</Link>
+                <Link
+                  href="/transparansi"
+                  className="transition-colors hover:text-white"
+                >
+                  Transparansi
+                </Link>
               </li>
             </ul>
           </div>
+
+          {/* Prototype */}
           <div>
-            <h4>Tentang prototipe</h4>
-            <ul>
+            <h4 className="mb-4 text-sm font-semibold text-white">
+              Tentang Prototipe
+            </h4>
+
+            <ul className="space-y-3 text-sm leading-6 text-blue-100">
               <li>Karya Multimedia In Action (MIA) 2026</li>
-              <li>Seluruh data adalah simulasi</li>
-              <li>Tidak terhubung dengan layanan pemerintah resmi</li>
+              <li>Seluruh data merupakan simulasi</li>
+              <li>
+                Tidak terhubung dengan layanan pemerintah resmi
+              </li>
             </ul>
           </div>
         </div>
-        <p className="foot-note">
-          Prototipe desain untuk kompetisi. Laporan, lokasi, dan angka pada situs ini fiktif dan hanya untuk demonstrasi.
-        </p>
+
+        {/* Disclaimer */}
+        <div className="flex flex-col gap-3 pt-6 text-xs leading-6 text-blue-200 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Prototipe desain untuk kompetisi. Laporan, lokasi, dan angka pada
+            situs ini bersifat fiktif dan hanya untuk demonstrasi.
+          </p>
+
+          <Link
+            href="/"
+            className="inline-flex shrink-0 items-center gap-1 transition-colors hover:text-white"
+          >
+            Kembali ke atas
+            <FiArrowUpRight size={14} />
+          </Link>
+        </div>
       </div>
     </footer>
   );
-}
+};
