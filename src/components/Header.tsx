@@ -55,10 +55,10 @@ export const Header = () => {
             </li>
           </ul>
           <div className="nav-actions">
-            <Link className="btn btn-secondary btn-sm" href="/admin">
+            <Link className="btn btn-secondary btn-sm" href="/login">
               Masuk
             </Link>
-            <Link className="btn btn-primary btn-sm" href="/buat-laporan-langkah-1">
+            <Link className="btn btn-primary btn-sm" href="/buat-laporan">
               Buat Laporan
             </Link>
           </div>
