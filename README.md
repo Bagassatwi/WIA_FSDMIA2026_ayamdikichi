@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JEJAKPUBLIK — Dari Laporan Menjadi Bukti
+
+JEJAKPUBLIK adalah platform pelaporan masyarakat untuk permasalahan infrastruktur dan lingkungan publik. Masyarakat dapat mengirim laporan tanpa akun, memantau proses penanganan, dan melihat bukti penyelesaian melalui ID tiket.
+
+## Team Ayamdikichi
+
+- Pandhu Arya M
+- M. Dwi Kurniawan
+- Bagas Satrio W
+
+## Tech Stack
+
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS
+- Supabase (PostgreSQL & Backend)
+- Leaflet & React Leaflet (Peta)
+- Lucide React (Icons)
 
 ## Getting Started
 
-First, run the development server:
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/mdwkrnwn/WIA_FSDMIA2026_ayamdikichi.git
+cd WIA_FSDMIA2026_ayamdikichi
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Configure Environment Variables
+
+Buat file `.env.local` di root directory project.
+
+Isi dengan konfigurasi Supabase:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://ebxjzrsgtxpjxefsrhvw.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_GnApl6c8IBH-OEU37z1jKA_GfQ-w0AT
+```
+
+Ganti `YOUR_SUPABASE_PUBLISHABLE_KEY` dengan publishable key dari project Supabase.
+
+Jangan membagikan file `.env.local` ke repository publik.
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka browser melalui:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Development Progress
 
-## Learn More
+| Fitur | Status |
+|---|---|
+| Landing Page | Completed |
+| Form Pelaporan | Completed |
+| Supabase Integration | In Progress |
+| Admin Authentication | Planned |
+| Petugas Authentication | Planned |
+| Admin Dashboard | Planned |
+| Petugas Dashboard | Planned |
+| Report Verification | Planned |
+| Field Assignment | Planned |
+| Evidence Validation | Planned |
 
-To learn more about Next.js, take a look at the following resources:
+## Application Workflow
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Masyarakat mengirim laporan tanpa akun.
+2. Sistem menghasilkan ID tiket.
+3. Admin memverifikasi laporan.
+4. Admin meneruskan laporan yang disetujui kepada petugas.
+5. Petugas melakukan penanganan dan mengirim dokumentasi.
+6. Admin memvalidasi hasil penanganan.
+7. Masyarakat memantau progres dan bukti penyelesaian melalui ID tiket.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Information
 
-## Deploy on Vercel
+**Project:** JEJAKPUBLIK  
+**Tagline:** Dari Laporan Menjadi Bukti  
+**Competition:** Multimedia In Action (MIA) 2026  
+**Team:** Ayamdikichi  
+**Repository:** https://github.com/mdwkrnwn/WIA_FSDMIA2026_ayamdikichi
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

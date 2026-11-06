@@ -66,7 +66,7 @@ function CTA() {
           <p>Laporan yang jelas dan terdokumentasi membuat penanganan bisa dipantau bersama.</p>
         </div>
         <div className="cta-row">
-          <Link className="btn btn-light" href="/buat-laporan-langkah-1">
+          <Link className="btn btn-light" href="/buat-laporan">
             Buat Laporan
           </Link>
           <Link className="btn btn-primary" style={{ background: "#1E40AF" }} href="/laporan">

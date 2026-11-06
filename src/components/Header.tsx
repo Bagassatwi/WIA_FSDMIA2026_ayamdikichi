@@ -2,28 +2,24 @@
 
 import Link from "next/link";
 import { useState } from "react";
-
+import { MapPinned } from "lucide-react";
 export const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <header className="site-header">
       <div className="wrap">
-        <nav className={`nav ${isOpen ? "open" : ""}`} aria-label="Navigasi utama">
-          <Link className="logo" href="/">
-            <svg viewBox="0 0 32 32" aria-hidden="true">
-              <rect width="32" height="32" rx="8" fill="#2563EB"></rect>
-              <path
-                d="M9 22l5-6 4 3 5-8"
-                fill="none"
-                stroke="#fff"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              ></path>
-              <circle cx="9" cy="22" r="2" fill="#fff"></circle>
-              <circle cx="23" cy="11" r="2" fill="#fff"></circle>
-            </svg>
+        <nav
+          className={`nav ${isOpen ? "open" : ""}`}
+          aria-label="Navigasi utama"
+        >
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-white"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm">
+              <MapPinned size={21} strokeWidth={2.2} />
+            </span>
             JEJAKPUBLIK
           </Link>
           <button
@@ -34,7 +30,12 @@ export const Header = () => {
             aria-label="Buka menu"
             onClick={() => setIsOpen(!isOpen)}
           >
-            <svg className="ic" data-i="menu" viewBox="0 0 24 24" aria-hidden="true">
+            <svg
+              className="ic"
+              data-i="menu"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               <path d="M4 7h16M4 12h16M4 17h16"></path>
             </svg>
           </button>
@@ -66,4 +67,4 @@ export const Header = () => {
       </div>
     </header>
   );
-}
+};

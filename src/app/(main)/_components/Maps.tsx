@@ -1,75 +1,82 @@
+import React from "react";
+import { MapPin } from "lucide-react";
+
+const mapStatuses = [
+  {
+    title: "Sedang diproses",
+    description: "3 titik pada area ini",
+    color: "text-blue-600",
+  },
+  {
+    title: "Menunggu verifikasi",
+    description: "2 titik pada area ini",
+    color: "text-amber-500",
+  },
+  {
+    title: "Selesai dengan bukti",
+    description: "2 titik pada area ini",
+    color: "text-emerald-600",
+  },
+  {
+    title: "Melewati target waktu",
+    description: "1 titik pada area ini",
+    color: "text-red-600",
+  },
+];
+
 function Maps() {
   return (
     <section className="section" id="peta">
       <div className="wrap">
-        <div className="section-head">
-          <h2>Lihat sebaran laporan di sekitar Anda</h2>
-          <p>Pratinjau peta statis dengan titik laporan simulasi.</p>
+        <div className="mb-5">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+            Lihat sebaran laporan di sekitar Anda
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Pantau peta real-time dengan titik laporan terbaru.
+          </p>
         </div>
-        <div className="mapgrid">
-          <div className="card map">
-            <svg viewBox="0 0 640 400" role="img" aria-label="Peta simulasi sebaran laporan">
-              <rect width="640" height="400" fill="#EAF1F8"></rect>
-              <path d="M0 300C140 270 220 330 360 290S560 250 640 270V400H0z" fill="#CFE0F1"></path>
-              <g stroke="#fff" strokeWidth="14" fill="none">
-                <path d="M0 120H640"></path>
-                <path d="M200 0V400"></path>
-                <path d="M0 40 640 200"></path>
-              </g>
-              <g stroke="#fff" strokeWidth="7" fill="none">
-                <path d="M420 0V400"></path>
-                <path d="M0 220H640"></path>
-                <path d="M60 0 320 400"></path>
-              </g>
-              <g fill="#DCE7D5">
-                <rect x="230" y="140" width="150" height="60" rx="8"></rect>
-                <rect x="450" y="40" width="150" height="60" rx="8"></rect>
-              </g>
-              <g stroke="#fff" strokeWidth="3">
-                <circle cx="150" cy="95" r="11" fill="#2563EB"></circle>
-                <circle cx="280" cy="170" r="11" fill="#D97706"></circle>
-                <circle cx="330" cy="75" r="11" fill="#059669"></circle>
-                <circle cx="470" cy="150" r="11" fill="#2563EB"></circle>
-                <circle cx="540" cy="240" r="11" fill="#DC2626"></circle>
-                <circle cx="110" cy="190" r="11" fill="#059669"></circle>
-                <circle cx="380" cy="250" r="11" fill="#D97706"></circle>
-              </g>
-            </svg>
+
+        <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-[1.25fr_0.95fr]">
+          {/* Map Image */}
+          <div className="h-[285px] overflow-hidden rounded-xl border border-slate-200 bg-slate-100 sm:h-[250px]">
+            <img
+              src="/assets/images/png/maps.png"
+              alt="Peta sebaran laporan masyarakat"
+              className="h-full w-full object-cover"
+            />
           </div>
-          <div className="maplist">
-            <div className="card mrow">
-              <span className="dot" style={{ background: "#2563EB" }}></span>
-              <div>
-                <b>Sedang diproses</b>
-                <p className="small">3 titik pada contoh ini</p>
+
+          {/* Map Legend */}
+          <div className="grid grid-cols-1 grid-rows-4 gap-2">
+            {mapStatuses.map((status) => (
+              <div
+                key={status.title}
+                className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md"
+              >
+                <MapPin
+                  size={24}
+                  strokeWidth={2.5}
+                  className={`shrink-0 ${status.color}`}
+                  fill="currentColor"
+                />
+
+                <div className="min-w-0 space-y-1">
+                  <h3 className="text-sm font-semibold leading-tight text-slate-900">
+                    {status.title}
+                  </h3>
+
+                  <p className="text-xs leading-tight text-slate-500">
+                    {status.description}
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="card mrow">
-              <span className="dot" style={{ background: "#D97706" }}></span>
-              <div>
-                <b>Menunggu verifikasi</b>
-                <p className="small">2 titik pada contoh ini</p>
-              </div>
-            </div>
-            <div className="card mrow">
-              <span className="dot" style={{ background: "#059669" }}></span>
-              <div>
-                <b>Selesai dengan bukti</b>
-                <p className="small">2 titik pada contoh ini</p>
-              </div>
-            </div>
-            <div className="card mrow">
-              <span className="dot" style={{ background: "#DC2626" }}></span>
-              <div>
-                <b>Melewati target waktu</b>
-                <p className="small">1 titik pada contoh ini</p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
     </section>
-  )
+  );
 }
 
-export default Maps
+export default Maps;
