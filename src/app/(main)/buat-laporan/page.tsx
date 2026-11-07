@@ -41,7 +41,7 @@ export default function BuatLaporanPage() {
   const [submitError, setSubmitError] = useState("");
   const [photoError, setPhotoError] = useState("");
   const [reportId, setReportId] = useState<string | null>(null);
-
+  const [reportCode, setReportCode] = useState<string | null>(null);
   const [reporterName, setReporterName] = useState("");
   const [reporterContact, setReporterContact] = useState("");
 
@@ -63,14 +63,12 @@ export default function BuatLaporanPage() {
 
   const today = new Date();
   const localToday = new Date(
-    today.getTime() - today.getTimezoneOffset() * 60000
+    today.getTime() - today.getTimezoneOffset() * 60000,
   )
     .toISOString()
     .split("T")[0];
 
-  const handlePhotoChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
 
     if (photos.length + selected.length > 5) {
@@ -82,12 +80,12 @@ export default function BuatLaporanPage() {
     const invalidFile = selected.find(
       (file) =>
         !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
-        file.size > 5 * 1024 * 1024
+        file.size > 5 * 1024 * 1024,
     );
 
     if (invalidFile) {
       setPhotoError(
-        `${invalidFile.name}: format tidak sesuai atau ukuran melebihi 5 MB.`
+        `${invalidFile.name}: format tidak sesuai atau ukuran melebihi 5 MB.`,
       );
       e.target.value = "";
       return;
@@ -121,7 +119,7 @@ export default function BuatLaporanPage() {
 
     if (!location) {
       setSubmitError(
-        "Lokasi laporan belum ditentukan. Silakan pilih titik pada peta."
+        "Lokasi laporan belum ditentukan. Silakan pilih titik pada peta.",
       );
       setStep(2);
       return false;
@@ -136,12 +134,12 @@ export default function BuatLaporanPage() {
     const invalidFile = photos.find(
       (file) =>
         !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
-        file.size > 5 * 1024 * 1024
+        file.size > 5 * 1024 * 1024,
     );
 
     if (invalidFile) {
       setSubmitError(
-        `${invalidFile.name}: format tidak sesuai atau ukuran melebihi 5 MB.`
+        `${invalidFile.name}: format tidak sesuai atau ukuran melebihi 5 MB.`,
       );
       setStep(3);
       return false;
@@ -161,7 +159,7 @@ export default function BuatLaporanPage() {
 
     if (!agree) {
       setSubmitError(
-        "Silakan centang pernyataan bahwa informasi laporan benar."
+        "Silakan centang pernyataan bahwa informasi laporan benar.",
       );
       setStep(4);
       return false;
@@ -170,9 +168,7 @@ export default function BuatLaporanPage() {
     return true;
   };
 
-  const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitError("");
 
@@ -181,87 +177,172 @@ export default function BuatLaporanPage() {
 
     setIsSubmitting(true);
 
+    // ID unik untuk satu kali pengiriman laporan
+    const submissionId = crypto.randomUUID();
+
+    // Menyimpan path foto yang berhasil diunggah
+    // Untuk kebutuhan cleanup jika RPC gagal
+    const uploadedPaths: string[] = [];
+
+    // Penanda apakah transaksi database sudah berhasil
+    let databaseCommitted = false;
+
     try {
-      // 1. Simpan data laporan melalui RPC
-      const { data, error } = await supabase.rpc("submit_report", {
-        p_reporter_name: reporterName.trim(),
-        p_reporter_contact: reporterContact.trim() || null,
-        p_category: cat,
-        p_title: title.trim(),
-        p_description: desc.trim(),
-        p_incident_date: date,
-        p_province: prov,
-        p_city: city,
-        p_district: dist,
-        p_address: addr.trim(),
-        p_latitude: location!.lat,
-        p_longitude: location!.lng,
-        p_privacy: priv,
-      });
+      // ==========================================
+      // 1. VALIDASI FOTO DAN PERSIAPAN DATA
+      // ==========================================
 
-      if (error) throw error;
-
-      if (!data) {
-        throw new Error("ID laporan tidak ditemukan dari hasil RPC.");
-      }
-
-      const reportDbId = data as string;
-
-      // 2. Upload foto ke Supabase Storage
       const uploadedPhotos: Array<{
-        report_id: string;
         storage_path: string;
         file_name: string;
         file_size: number;
         mime_type: string;
       }> = [];
 
-      for (const photo of photos) {
-        const extension =
-          photo.name.split(".").pop()?.toLowerCase() || "jpg";
+      // ==========================================
+      // 2. UPLOAD SEMUA FOTO KE STORAGE
+      // ==========================================
 
-        const filePath = `${reportDbId}/${crypto.randomUUID()}.${extension}`;
+      for (const photo of photos) {
+        const extension = photo.name.split(".").pop()?.toLowerCase() || "jpg";
+
+        const filePath = `reports/${submissionId}/${crypto.randomUUID()}.${extension}`;
 
         const { error: uploadError } = await supabase.storage
           .from("report-photo")
           .upload(filePath, photo, {
-            contentType: photo.type,
+            contentType: photo.type || "application/octet-stream",
             upsert: false,
           });
 
+        // Jika salah satu foto gagal, hentikan proses
         if (uploadError) {
           throw new Error(
-            `Gagal mengunggah foto ${photo.name}: ${uploadError.message}`
+            `Gagal mengunggah foto ${photo.name}: ${uploadError.message}`,
           );
         }
 
+        // Catat path foto yang berhasil diunggah
+        uploadedPaths.push(filePath);
+
+        // Siapkan metadata untuk RPC
         uploadedPhotos.push({
-          report_id: reportDbId,
           storage_path: filePath,
           file_name: photo.name,
           file_size: photo.size,
-          mime_type: photo.type,
+          mime_type: photo.type || "application/octet-stream",
         });
       }
 
-      // 3. Simpan metadata foto
-      if (uploadedPhotos.length > 0) {
-        const { error: photoInsertError } = await supabase
-          .from("report_photos")
-          .insert(uploadedPhotos);
+      console.log("Semua foto berhasil diunggah:", uploadedPhotos);
 
-        if (photoInsertError) {
-          throw new Error(
-            `Foto berhasil diunggah, tetapi metadata gagal disimpan: ${photoInsertError.message}`
-          );
+      // ==========================================
+      // 3. SIMPAN LAPORAN + METADATA FOTO
+      //    DALAM SATU TRANSAKSI DATABASE
+      // ==========================================
+
+      const { data, error } = await supabase.rpc(
+        "submit_report_with_photos_v2",
+        {
+          p_reporter_name: reporterName.trim(),
+          p_reporter_contact: reporterContact.trim() || null,
+          p_category: cat,
+          p_title: title.trim(),
+          p_description: desc.trim(),
+          p_incident_date: date,
+          p_province: prov,
+          p_city: city,
+          p_district: dist,
+          p_address: addr.trim(),
+          p_latitude: location!.lat,
+          p_longitude: location!.lng,
+          p_privacy: priv,
+          p_photos: uploadedPhotos,
+        },
+      );
+
+      // Jika RPC gagal, transaksi PostgreSQL rollback
+      if (error) {
+        throw new Error(`Gagal menyimpan laporan: ${error.message}`);
+      }
+
+      // RPC sudah berhasil dan transaksi sudah COMMIT
+      databaseCommitted = true;
+
+      // ==========================================
+      // 4. VALIDASI HASIL RPC
+      // ==========================================
+
+      if (
+        !data ||
+        typeof data !== "object" ||
+        !("id" in data) ||
+        !("report_code" in data)
+      ) {
+        console.error("Hasil RPC tidak valid:", data);
+
+        throw new Error(
+          "Laporan sudah diproses, tetapi ID atau kode laporan tidak ditemukan. Periksa database sebelum mengirim ulang.",
+        );
+      }
+
+      const reportDbId = String(data.id);
+      const generatedReportCode = String(data.report_code);
+
+      if (
+        !reportDbId ||
+        reportDbId === "null" ||
+        reportDbId === "undefined" ||
+        !generatedReportCode ||
+        generatedReportCode === "null" ||
+        generatedReportCode === "undefined"
+      ) {
+        throw new Error(
+          "Laporan sudah diproses, tetapi UUID atau kode laporan tidak valid. Periksa database sebelum mengirim ulang.",
+        );
+      }
+
+      // ==========================================
+      // 5. TAMPILKAN KONFIRMASI
+      // ==========================================
+
+      setReportId(reportDbId);
+      setReportCode(generatedReportCode);
+      setSubmitted(true);
+
+      console.log("Laporan berhasil disimpan!");
+      console.log("UUID laporan:", reportDbId);
+      console.log("Kode laporan:", generatedReportCode);
+      console.log("Jumlah foto:", uploadedPhotos.length);
+    } catch (error: unknown) {
+      console.error("Gagal mengirim laporan:", error);
+
+      // ==========================================
+      // 6. CLEANUP FOTO JIKA TRANSAKSI GAGAL
+      // ==========================================
+
+      // Jangan hapus foto jika database sudah COMMIT.
+      // Foto tersebut sudah terhubung dengan laporan.
+      if (!databaseCommitted && uploadedPaths.length > 0) {
+        console.warn("Memulai cleanup foto...");
+
+        try {
+          const { data: removedFiles, error: cleanupError } =
+            await supabase.storage.from("report-photo").remove(uploadedPaths);
+
+          if (cleanupError) {
+            console.error("Gagal menghapus foto dari Storage:", cleanupError);
+          } else {
+            console.log("Cleanup foto berhasil:", removedFiles);
+          }
+        } catch (cleanupException) {
+          console.error("Terjadi kesalahan saat cleanup:", cleanupException);
         }
       }
 
-      // 4. Tampilkan konfirmasi
-      setReportId(reportDbId);
-      setSubmitted(true);
-    } catch (error: unknown) {
-      console.error("Gagal mengirim laporan:", error);
+      // ==========================================
+      // 7. FORMAT PESAN ERROR
+      // ==========================================
 
       let message = "Terjadi kesalahan yang belum diketahui.";
 
@@ -281,9 +362,7 @@ export default function BuatLaporanPage() {
           err.hint,
           err.code ? `Kode: ${err.code}` : null,
         ]
-          .filter(
-            (item) => item !== undefined && item !== null && item !== ""
-          )
+          .filter((item) => item !== undefined && item !== null && item !== "")
           .map(String)
           .join(" | ");
       } else {
@@ -292,6 +371,10 @@ export default function BuatLaporanPage() {
 
       setSubmitError(message);
     } finally {
+      // ==========================================
+      // 8. RESET STATUS SUBMIT
+      // ==========================================
+
       setIsSubmitting(false);
     }
   };
@@ -316,9 +399,7 @@ export default function BuatLaporanPage() {
               Beranda
             </Link>
             <span>/</span>
-            <span className="font-medium text-gray-800">
-              Buat Laporan
-            </span>
+            <span className="font-medium text-gray-800">Buat Laporan</span>
           </div>
 
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
@@ -326,9 +407,8 @@ export default function BuatLaporanPage() {
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-500 sm:text-base">
-            Sampaikan masalah di lingkungan sekitar agar dapat
-            ditindaklanjuti. Pastikan informasi dan lokasi sudah benar
-            sebelum laporan dikirim.
+            Sampaikan masalah di lingkungan sekitar agar dapat ditindaklanjuti.
+            Pastikan informasi dan lokasi sudah benar sebelum laporan dikirim.
           </p>
         </div>
 
@@ -344,23 +424,24 @@ export default function BuatLaporanPage() {
             </h2>
 
             <p className="mt-3 text-sm leading-6 text-gray-500">
-              Laporan Anda sudah tersimpan di sistem JEJAKPUBLIK.
-              Simpan ID berikut untuk keperluan penelusuran laporan.
+              Laporan Anda sudah tersimpan di sistem JEJAKPUBLIK. Simpan ID
+              berikut untuk keperluan penelusuran laporan.
             </p>
 
             <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                ID Laporan
+                Kode Laporan
               </p>
               <p className="mt-2 break-all font-mono text-sm font-semibold text-gray-900">
-                {reportId}
+                {reportCode}
               </p>
             </div>
 
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link
                 href="/laporan"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                style={{ color: "#ffffff" }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold  transition hover:bg-blue-700"
               >
                 Lihat laporan lain
                 <FiArrowRight />
@@ -466,8 +547,8 @@ export default function BuatLaporanPage() {
                         Informasi Masalah
                       </h2>
                       <p className="mt-2 text-sm text-gray-500">
-                        Ceritakan masalah yang ditemukan dengan singkat
-                        dan jelas.
+                        Ceritakan masalah yang ditemukan dengan singkat dan
+                        jelas.
                       </p>
                     </div>
 
@@ -550,8 +631,8 @@ export default function BuatLaporanPage() {
                         Lokasi Masalah
                       </h2>
                       <p className="mt-2 text-sm text-gray-500">
-                        Masukkan wilayah dan alamat, lalu tentukan titik
-                        lokasi pada peta.
+                        Masukkan wilayah dan alamat, lalu tentukan titik lokasi
+                        pada peta.
                       </p>
                     </div>
 
@@ -609,9 +690,7 @@ export default function BuatLaporanPage() {
                             <option value="Lowokwaru">Lowokwaru</option>
                             <option value="Blimbing">Blimbing</option>
                             <option value="Sukun">Sukun</option>
-                            <option value="Kedungkandang">
-                              Kedungkandang
-                            </option>
+                            <option value="Kedungkandang">Kedungkandang</option>
                           </select>
                         </div>
                       </div>
@@ -642,8 +721,8 @@ export default function BuatLaporanPage() {
                               Tentukan titik lokasi
                             </p>
                             <p className="mt-1 text-xs leading-5 text-gray-600">
-                              Pilih titik yang paling mendekati lokasi
-                              masalah pada peta di samping.
+                              Pilih titik yang paling mendekati lokasi masalah
+                              pada peta di samping.
                             </p>
                           </div>
                         </div>
@@ -666,8 +745,8 @@ export default function BuatLaporanPage() {
                         Dokumentasi Foto
                       </h2>
                       <p className="mt-2 text-sm text-gray-500">
-                        Lampirkan foto kondisi di lokasi agar laporan
-                        lebih mudah diverifikasi.
+                        Lampirkan foto kondisi di lokasi agar laporan lebih
+                        mudah diverifikasi.
                       </p>
                     </div>
 
@@ -709,10 +788,7 @@ export default function BuatLaporanPage() {
                     </div>
 
                     {photoError && (
-                      <p
-                        role="alert"
-                        className="mt-3 text-sm text-red-600"
-                      >
+                      <p role="alert" className="mt-3 text-sm text-red-600">
                         {photoError}
                       </p>
                     )}
@@ -795,8 +871,7 @@ export default function BuatLaporanPage() {
                         Konfirmasi Laporan
                       </h2>
                       <p className="mt-2 text-sm text-gray-500">
-                        Periksa kembali informasi sebelum mengirim
-                        laporan.
+                        Periksa kembali informasi sebelum mengirim laporan.
                       </p>
                     </div>
 
@@ -828,9 +903,7 @@ export default function BuatLaporanPage() {
                         </div>
 
                         <div>
-                          <dt className="text-gray-500">
-                            Tanggal kejadian
-                          </dt>
+                          <dt className="text-gray-500">Tanggal kejadian</dt>
                           <dd className="mt-1 font-medium text-gray-800">
                             {formatDate(date)}
                           </dd>
@@ -856,10 +929,7 @@ export default function BuatLaporanPage() {
 
                     <div className="space-y-5">
                       <div>
-                        <label
-                          htmlFor="reporterName"
-                          className={labelClass}
-                        >
+                        <label htmlFor="reporterName" className={labelClass}>
                           Nama lengkap pelapor
                         </label>
                         <input
@@ -868,19 +938,14 @@ export default function BuatLaporanPage() {
                           maxLength={100}
                           placeholder="Masukkan nama lengkap"
                           value={reporterName}
-                          onChange={(e) =>
-                            setReporterName(e.target.value)
-                          }
+                          onChange={(e) => setReporterName(e.target.value)}
                           className={inputClass}
                           required
                         />
                       </div>
 
                       <div>
-                        <label
-                          htmlFor="reporterContact"
-                          className={labelClass}
-                        >
+                        <label htmlFor="reporterContact" className={labelClass}>
                           Nomor WhatsApp atau Email{" "}
                           <span className="font-normal text-gray-400">
                             (Opsional)
@@ -892,9 +957,7 @@ export default function BuatLaporanPage() {
                           maxLength={150}
                           placeholder="Contoh: 081234567890"
                           value={reporterContact}
-                          onChange={(e) =>
-                            setReporterContact(e.target.value)
-                          }
+                          onChange={(e) => setReporterContact(e.target.value)}
                           className={inputClass}
                         />
                         <p className="mt-2 text-xs text-gray-500">
@@ -923,8 +986,8 @@ export default function BuatLaporanPage() {
                                 Samarkan nama saya
                               </span>
                               <span className="mt-1 block text-xs leading-5 text-gray-500">
-                                Nama tidak ditampilkan. Identitas
-                                ditampilkan sebagai “Pelapor warga”.
+                                Nama tidak ditampilkan. Identitas ditampilkan
+                                sebagai “Pelapor warga”.
                               </span>
                             </span>
                           </label>
@@ -962,8 +1025,8 @@ export default function BuatLaporanPage() {
                             Saya menyatakan informasi ini benar
                           </span>
                           <span className="mt-1 block text-xs leading-5 text-gray-500">
-                            Data laporan akan disimpan untuk proses
-                            verifikasi dan tindak lanjut.
+                            Data laporan akan disimpan untuk proses verifikasi
+                            dan tindak lanjut.
                           </span>
                         </span>
                       </label>
@@ -997,7 +1060,7 @@ export default function BuatLaporanPage() {
 
                         if (step === 2 && !location) {
                           setSubmitError(
-                            "Silakan tentukan titik lokasi pada peta terlebih dahulu."
+                            "Silakan tentukan titik lokasi pada peta terlebih dahulu.",
                           );
                           return;
                         }
@@ -1015,9 +1078,7 @@ export default function BuatLaporanPage() {
                       disabled={isSubmitting}
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isSubmitting
-                        ? "Mengirim laporan..."
-                        : "Kirim Laporan"}
+                      {isSubmitting ? "Mengirim laporan..." : "Kirim Laporan"}
                       {!isSubmitting && <FiArrowRight size={16} />}
                     </button>
                   )}
@@ -1036,10 +1097,7 @@ export default function BuatLaporanPage() {
                     </p>
                   </div>
 
-                  <LocationPicker
-                    value={location}
-                    onChange={setLocation}
-                  />
+                  <LocationPicker value={location} onChange={setLocation} />
 
                   <div className="mt-4 rounded-xl bg-gray-50 p-3">
                     <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -1066,9 +1124,8 @@ export default function BuatLaporanPage() {
                   </div>
 
                   <p className="mt-3 text-sm leading-6 text-gray-500">
-                    Pada layanan nyata, laporan akan diverifikasi,
-                    ditugaskan kepada petugas, lalu dicatat dalam Jejak
-                    Penanganan.
+                    Pada layanan nyata, laporan akan diverifikasi, ditugaskan
+                    kepada petugas, lalu dicatat dalam Jejak Penanganan.
                   </p>
                 </div>
 

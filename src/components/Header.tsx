@@ -73,7 +73,8 @@ export const Header = () => {
 
             <Link
               href="/buat-laporan"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+              style={{ color: "#ffffff" }}
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold  shadow-sm transition hover:bg-blue-700"
             >
               <FiPlusCircle size={17} />
               Buat Laporan
