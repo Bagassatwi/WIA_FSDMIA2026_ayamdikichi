@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   FiUploadCloud,
@@ -31,6 +31,9 @@ const steps = [
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 
+const textInputClass = `${inputClass} cursor-text`;
+const selectClass = `${inputClass} cursor-pointer`;
+
 const labelClass = "mb-2 block text-sm font-medium text-gray-700";
 
 export default function BuatLaporanPage() {
@@ -38,12 +41,137 @@ export default function BuatLaporanPage() {
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  type Region = {
+    id: string;
+    name: string;
+  };
+
+  const [provinces, setProvinces] = useState<Region[]>([]);
+  const [regencies, setRegencies] = useState<Region[]>([]);
+  const [districts, setDistricts] = useState<Region[]>([]);
+  const [provCode, setProvCode] = useState("");
+  const [cityCode, setCityCode] = useState("");
+
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingRegencies, setLoadingRegencies] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+
+  const REGION_API = "https://www.emsifa.com/api-wilayah-indonesia/v2";
+
+  const fetchRegions = async (endpoint: string): Promise<Region[]> => {
+    const response = await fetch(`${REGION_API}/${endpoint}.json`);
+
+    if (!response.ok) {
+      throw new Error("Gagal mengambil data wilayah.");
+    }
+
+    const result = await response.json();
+
+    return result.data;
+  };
+  useEffect(() => {
+    const loadProvinces = async () => {
+      setLoadingProvinces(true);
+      setRegionError("");
+
+      try {
+        const data = await fetchRegions("provinces");
+        setProvinces(data);
+      } catch (error) {
+        console.error("Gagal memuat provinsi:", error);
+        setRegionError(
+          "Data provinsi gagal dimuat. Periksa koneksi internet lalu coba lagi.",
+        );
+      } finally {
+        setLoadingProvinces(false);
+      }
+    };
+
+    loadProvinces();
+  }, []);
+  useEffect(() => {
+    if (!provCode) {
+      setRegencies([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadRegencies = async () => {
+      setLoadingRegencies(true);
+      setRegionError("");
+      setRegencies([]);
+
+      try {
+        const data = await fetchRegions(`regencies/${provCode}`);
+
+        if (!cancelled) {
+          setRegencies(data);
+        }
+      } catch (error) {
+        console.error("Gagal memuat kabupaten/kota:", error);
+
+        if (!cancelled) {
+          setRegionError("Gagal memuat kabupaten/kota.");
+        }
+      } finally {
+        if (!cancelled) setLoadingRegencies(false);
+      }
+    };
+
+    loadRegencies();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [provCode]);
+
+  useEffect(() => {
+    if (!cityCode) {
+      setDistricts([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadDistricts = async () => {
+      setLoadingDistricts(true);
+      setRegionError("");
+      setDistricts([]);
+
+      try {
+        const data = await fetchRegions(`districts/${cityCode}`);
+
+        if (!cancelled) {
+          setDistricts(data);
+        }
+      } catch (error) {
+        console.error("Gagal memuat kecamatan:", error);
+
+        if (!cancelled) {
+          setRegionError("Gagal memuat kecamatan.");
+        }
+      } finally {
+        if (!cancelled) setLoadingDistricts(false);
+      }
+    };
+
+    loadDistricts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cityCode]);
+
+  const [regionError, setRegionError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [photoError, setPhotoError] = useState("");
   const [reportId, setReportId] = useState<string | null>(null);
   const [reportCode, setReportCode] = useState<string | null>(null);
   const [reporterName, setReporterName] = useState("");
+
   const [reporterContact, setReporterContact] = useState("");
+  const [notificationConsent, setNotificationConsent] = useState(false);
 
   const [cat, setCat] = useState("");
   const [title, setTitle] = useState("");
@@ -67,6 +195,18 @@ export default function BuatLaporanPage() {
   )
     .toISOString()
     .split("T")[0];
+
+  useEffect(() => {
+    const handlePageShow = () => {
+      setSubmitted(false);
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, []);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
@@ -199,6 +339,35 @@ export default function BuatLaporanPage() {
         mime_type: string;
       }> = [];
 
+      const { data: possibleDuplicate, error: duplicateCheckError } =
+        await supabase.rpc("has_similar_reports", {
+          p_category: cat,
+          p_title: title.trim(),
+          p_description: desc.trim(),
+          p_incident_date: date,
+          p_latitude: location!.lat,
+          p_longitude: location!.lng,
+        });
+
+      if (duplicateCheckError) {
+        throw new Error(
+          `Gagal memeriksa laporan serupa: ${duplicateCheckError.message}`,
+        );
+      }
+
+      // Jika ditemukan kemungkinan laporan duplikat
+      if (possibleDuplicate === true) {
+        const proceed = window.confirm(
+          "PERHATIAN: Sistem menemukan kemungkinan laporan serupa dengan laporan yang sudah ada.\n\n" +
+            "Pastikan laporan ini bukan laporan yang sama.\n\n" +
+            "Apakah Anda tetap ingin melanjutkan pengiriman?",
+        );
+
+        // Batalkan jika pengguna memilih Cancel
+        if (!proceed) {
+          return;
+        }
+      }
       // ==========================================
       // 2. UPLOAD SEMUA FOTO KE STORAGE
       // ==========================================
@@ -246,6 +415,7 @@ export default function BuatLaporanPage() {
         {
           p_reporter_name: reporterName.trim(),
           p_reporter_contact: reporterContact.trim() || null,
+          p_notification_consent: notificationConsent,
           p_category: cat,
           p_title: title.trim(),
           p_description: desc.trim(),
@@ -561,7 +731,7 @@ export default function BuatLaporanPage() {
                           id="cat"
                           value={cat}
                           onChange={(e) => setCat(e.target.value)}
-                          className={inputClass}
+                          className={selectClass}
                           required
                         >
                           <option value="">Pilih kategori</option>
@@ -576,7 +746,7 @@ export default function BuatLaporanPage() {
 
                       <div>
                         <label htmlFor="title" className={labelClass}>
-                          Judul laporan
+                          Judul laporan <span className="text-red-500">*</span>
                         </label>
                         <input
                           id="title"
@@ -585,14 +755,15 @@ export default function BuatLaporanPage() {
                           placeholder="Contoh: Lampu jalan mati di Jl. Ijen"
                           value={title}
                           onChange={(e) => setTitle(e.target.value)}
-                          className={inputClass}
+                          className={textInputClass}
                           required
                         />
                       </div>
 
                       <div>
                         <label htmlFor="desc" className={labelClass}>
-                          Deskripsi masalah
+                          Deskripsi masalah{" "}
+                          <span className="text-red-500">*</span>
                         </label>
                         <textarea
                           id="desc"
@@ -600,14 +771,15 @@ export default function BuatLaporanPage() {
                           placeholder="Jelaskan apa yang terjadi, sejak kapan, dan apa dampaknya..."
                           value={desc}
                           onChange={(e) => setDesc(e.target.value)}
-                          className={`${inputClass} resize-y`}
+                          className={`${textInputClass} resize-y`}
                           required
                         />
                       </div>
 
                       <div>
                         <label htmlFor="date" className={labelClass}>
-                          Tanggal kejadian
+                          Tanggal kejadian{" "}
+                          <span className="text-red-500">*</span>
                         </label>
                         <input
                           id="date"
@@ -615,7 +787,7 @@ export default function BuatLaporanPage() {
                           max={localToday}
                           value={date}
                           onChange={(e) => setDate(e.target.value)}
-                          className={inputClass}
+                          className={textInputClass}
                           required
                         />
                       </div>
@@ -639,65 +811,129 @@ export default function BuatLaporanPage() {
                     <div className="space-y-5">
                       <div>
                         <label htmlFor="prov" className={labelClass}>
-                          Provinsi
+                          Provinsi <span className="text-red-500">*</span>
                         </label>
+
                         <select
                           id="prov"
-                          value={prov}
-                          onChange={(e) => setProv(e.target.value)}
-                          className={inputClass}
+                          value={provCode}
+                          onChange={(e) => {
+                            const selected = provinces.find(
+                              (item) => item.id === e.target.value,
+                            );
+
+                            setProvCode(e.target.value);
+                            setProv(selected?.name || "");
+
+                            setCityCode("");
+                            setCity("");
+                            setDist("");
+                            setRegencies([]);
+                            setDistricts([]);
+                            setRegionError("");
+                          }}
+                          className={selectClass}
                           required
                         >
-                          <option value="">Pilih provinsi</option>
-                          <option value="Jawa Timur">Jawa Timur</option>
+                          <option value="">
+                            {loadingProvinces
+                              ? "Memuat provinsi..."
+                              : "Pilih provinsi"}
+                          </option>
+
+                          {provinces.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
                         </select>
                       </div>
 
                       <div className="grid gap-5 sm:grid-cols-2">
                         <div>
                           <label htmlFor="city" className={labelClass}>
-                            Kota atau kabupaten
+                            Kota atau kabupaten{" "}
+                            <span className="text-red-500">*</span>
                           </label>
+
                           <select
                             id="city"
-                            value={city}
-                            onChange={(e) => setCity(e.target.value)}
-                            className={inputClass}
+                            value={cityCode}
+                            onChange={(e) => {
+                              const selected = regencies.find(
+                                (item) => item.id === e.target.value,
+                              );
+
+                              setCityCode(e.target.value);
+                              setCity(selected?.name || "");
+
+                              setDist("");
+                              setDistricts([]);
+                              setRegionError("");
+                            }}
+                            className={selectClass}
+                            disabled={!provCode || loadingRegencies}
                             required
                           >
-                            <option value="">Pilih wilayah</option>
-                            <option value="Kota Malang">Kota Malang</option>
-                            <option value="Kabupaten Malang">
-                              Kabupaten Malang
+                            <option value="">
+                              {!provCode
+                                ? "Pilih provinsi terlebih dahulu"
+                                : loadingRegencies
+                                  ? "Memuat kabupaten/kota..."
+                                  : "Pilih kota atau kabupaten"}
                             </option>
-                            <option value="Kota Batu">Kota Batu</option>
+
+                            {regencies.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.name}
+                              </option>
+                            ))}
                           </select>
                         </div>
 
                         <div>
                           <label htmlFor="dist" className={labelClass}>
-                            Kecamatan
+                            Kecamatan <span className="text-red-500">*</span>
                           </label>
+
                           <select
                             id="dist"
                             value={dist}
                             onChange={(e) => setDist(e.target.value)}
-                            className={inputClass}
+                            className={selectClass}
+                            disabled={!cityCode || loadingDistricts}
                             required
                           >
-                            <option value="">Pilih kecamatan</option>
-                            <option value="Klojen">Klojen</option>
-                            <option value="Lowokwaru">Lowokwaru</option>
-                            <option value="Blimbing">Blimbing</option>
-                            <option value="Sukun">Sukun</option>
-                            <option value="Kedungkandang">Kedungkandang</option>
+                            <option value="">
+                              {!cityCode
+                                ? "Pilih kota/kabupaten terlebih dahulu"
+                                : loadingDistricts
+                                  ? "Memuat kecamatan..."
+                                  : "Pilih kecamatan"}
+                            </option>
+
+                            {districts.map((item) => (
+                              <option key={item.id} value={item.name}>
+                                {item.name}
+                              </option>
+                            ))}
                           </select>
                         </div>
+
+                        {regionError && (
+                          <div
+                            role="alert"
+                            className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600"
+                          >
+                            {regionError}
+                          </div>
+                        )}
                       </div>
 
                       <div>
                         <label htmlFor="addr" className={labelClass}>
-                          Alamat atau patokan
+                          Alamat atau patokan{" "}
+                          <span className="text-red-500">*</span>
                         </label>
                         <input
                           id="addr"
@@ -705,7 +941,7 @@ export default function BuatLaporanPage() {
                           placeholder="Contoh: Jl. Ijen, depan gerbang sekolah"
                           value={addr}
                           onChange={(e) => setAddr(e.target.value)}
-                          className={inputClass}
+                          className={textInputClass}
                           required
                         />
                       </div>
@@ -716,21 +952,28 @@ export default function BuatLaporanPage() {
                             className="mt-0.5 shrink-0 text-blue-600"
                             size={20}
                           />
+
                           <div>
                             <p className="text-sm font-semibold text-gray-800">
-                              Tentukan titik lokasi
+                              Cara Menentukan Titik Lokasi
                             </p>
+
                             <p className="mt-1 text-xs leading-5 text-gray-600">
-                              Pilih titik yang paling mendekati lokasi masalah
-                              pada peta di samping.
+                              Klik tombol{" "}
+                              <span className="font-semibold text-blue-700">
+                                "Lokasi Saya"
+                              </span>{" "}
+                              pada peta untuk menentukan titik lokasi kejadian.
+                              Pastikan titik yang ditampilkan sudah sesuai
+                              dengan lokasi masalah yang dilaporkan.
                             </p>
                           </div>
                         </div>
 
                         <p className="mt-3 text-sm font-medium text-blue-700">
                           {location
-                            ? `Koordinat: ${location.lat}, ${location.lng}`
-                            : "Lokasi belum dipilih."}
+                            ? `Koordinat terpilih: ${location.lat}, ${location.lng}`
+                            : "Lokasi belum dipilih. Silakan klik tombol Lokasi Saya pada peta."}
                         </p>
                       </div>
                     </div>
@@ -930,7 +1173,8 @@ export default function BuatLaporanPage() {
                     <div className="space-y-5">
                       <div>
                         <label htmlFor="reporterName" className={labelClass}>
-                          Nama lengkap pelapor
+                          Nama lengkap pelapor{" "}
+                          <span className="text-red-500">*</span>
                         </label>
                         <input
                           id="reporterName"
@@ -939,7 +1183,7 @@ export default function BuatLaporanPage() {
                           placeholder="Masukkan nama lengkap"
                           value={reporterName}
                           onChange={(e) => setReporterName(e.target.value)}
-                          className={inputClass}
+                          className={textInputClass}
                           required
                         />
                       </div>
@@ -1030,6 +1274,31 @@ export default function BuatLaporanPage() {
                           </span>
                         </span>
                       </label>
+
+                      <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                        <label className="flex cursor-pointer items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={notificationConsent}
+                            onChange={(e) =>
+                              setNotificationConsent(e.target.checked)
+                            }
+                            className="mt-1 h-4 w-4 shrink-0 accent-blue-600"
+                          />
+
+                          <span>
+                            <span className="block text-sm font-semibold text-gray-800">
+                              Notifikasi perkembangan laporan (opsional)
+                            </span>
+
+                            <span className="mt-1 block text-xs leading-5 text-gray-600">
+                              Saya bersedia menerima pemberitahuan otomatis
+                              melalui email atau WhatsApp apabila terjadi
+                              perubahan status laporan.
+                            </span>
+                          </span>
+                        </label>
+                      </div>
                     </div>
                   </section>
                 )}
@@ -1127,19 +1396,6 @@ export default function BuatLaporanPage() {
                     Pada layanan nyata, laporan akan diverifikasi, ditugaskan
                     kepada petugas, lalu dicatat dalam Jejak Penanganan.
                   </p>
-                </div>
-
-                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
-                  <h3 className="text-sm font-semibold text-blue-900">
-                    Tips membuat laporan
-                  </h3>
-
-                  <ul className="mt-3 space-y-2 text-xs leading-5 text-blue-800">
-                    <li>• Gunakan judul yang singkat dan jelas.</li>
-                    <li>• Jelaskan kondisi dan dampak masalah.</li>
-                    <li>• Pilih titik lokasi yang akurat.</li>
-                    <li>• Sertakan foto kondisi terkini.</li>
-                  </ul>
                 </div>
               </aside>
             </div>

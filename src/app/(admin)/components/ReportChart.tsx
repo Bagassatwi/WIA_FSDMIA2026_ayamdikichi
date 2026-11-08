@@ -130,7 +130,7 @@ const CATEGORY_CONFIG = [
   },
   {
     name: "Drainase",
-    aliases: ["drainase", "saluran air", "selokan"],
+    aliases: ["drainase", "drain", "saluran air", "selokan"],
   },
   {
     name: "Penerangan Jalan",

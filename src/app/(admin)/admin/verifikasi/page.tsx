@@ -7,6 +7,7 @@ import {
   MapPin,
   CalendarDays,
   Clock3,
+  ShieldCheck,
   CheckCircle2,
   XCircle,
   X,
@@ -48,6 +49,14 @@ type ReportPhoto = {
   file_size: number;
   mime_type: string;
   signedUrl?: string;
+};
+
+type ReportValidation = {
+  duplicate_detected: boolean;
+  spam_detected: boolean;
+  spam_checked: boolean;
+  validation_notes: string[];
+  checked_at: string;
 };
 
 // ==========================================
@@ -127,6 +136,13 @@ export default function VerifikasiPage() {
 
   const [photos, setPhotos] = useState<ReportPhoto[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
+
+  const [validationResult, setValidationResult] =
+    useState<ReportValidation | null>(null);
+
+  const [validationLoading, setValidationLoading] = useState(false);
+
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -299,17 +315,62 @@ export default function VerifikasiPage() {
   };
 
   // ==========================================
+  // FETCH AUTOMATIC VALIDATION RESULT
+  // ==========================================
+
+  const fetchValidationResult = async (reportId: string) => {
+    setValidationLoading(true);
+    setValidationResult(null);
+    setValidationError(null);
+
+    try {
+      const { data, error } = await supabase
+        .from("report_validation_results")
+        .select(
+          `
+        duplicate_detected,
+        spam_detected,
+        spam_checked,
+        validation_notes,
+        checked_at
+      `,
+        )
+        .eq("report_id", reportId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      setValidationResult(data as ReportValidation | null);
+    } catch (error) {
+      console.error("GAGAL MENGAMBIL HASIL VALIDASI:", error);
+
+      setValidationError(
+        error instanceof Error
+          ? error.message
+          : "Gagal mengambil hasil validasi otomatis.",
+      );
+    } finally {
+      setValidationLoading(false);
+    }
+  };
+  // ==========================================
   // OPEN REPORT DETAIL
   // ==========================================
 
   const openReport = async (report: Report) => {
     setSelectedReport(report);
+
     setPhotos([]);
+    setValidationResult(null);
+
     setShowRejectForm(false);
     setRejectionReason("");
     setActionError(null);
 
-    await fetchReportPhotos(report.id);
+    await Promise.all([
+      fetchReportPhotos(report.id),
+      fetchValidationResult(report.id),
+    ]);
   };
 
   // ==========================================
@@ -321,6 +382,10 @@ export default function VerifikasiPage() {
 
     setSelectedReport(null);
     setPhotos([]);
+
+    setValidationResult(null);
+    setValidationError(null);
+
     setShowRejectForm(false);
     setRejectionReason("");
     setActionError(null);
@@ -769,6 +834,91 @@ export default function VerifikasiPage() {
 
                 <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600">
                   {selectedReport.description || "-"}
+                </p>
+              </div>
+
+              {/* ========================================== */}
+              {/* HASIL VALIDASI OTOMATIS */}
+              {/* ========================================== */}
+
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="mb-4 flex items-center gap-2">
+                  <ShieldCheck size={19} className="text-blue-600" />
+
+                  <h3 className="text-sm font-bold text-slate-800">
+                    Hasil Validasi Otomatis
+                  </h3>
+                </div>
+
+                {validationLoading ? (
+                  <div className="flex items-center gap-2 py-4 text-sm text-slate-500">
+                    <Loader2 size={17} className="animate-spin" />
+                    Memuat hasil validasi...
+                  </div>
+                ) : validationError ? (
+                  <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                    Gagal mengambil hasil validasi: {validationError}
+                  </div>
+                ) : !validationResult ? (
+                  <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
+                    Belum tersedia hasil validasi otomatis untuk laporan ini.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* DETEKSI DUPLIKAT */}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-slate-600">
+                        Deteksi duplikat
+                      </span>
+
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          validationResult.duplicate_detected
+                            ? "bg-amber-50 text-amber-700"
+                            : "bg-emerald-50 text-emerald-700"
+                        }`}
+                      >
+                        {validationResult.duplicate_detected
+                          ? "Potensi duplikat"
+                          : "Tidak terindikasi"}
+                      </span>
+                    </div>
+
+                    {/* CATATAN VALIDASI */}
+                    {validationResult.validation_notes.length > 0 && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                        <p className="mb-2 flex items-center gap-2 text-xs font-bold text-amber-800">
+                          <AlertCircle size={15} />
+                          Catatan Sistem
+                        </p>
+
+                        <ul className="list-inside list-disc space-y-1 text-sm text-amber-700">
+                          {validationResult.validation_notes.map(
+                            (note, index) => (
+                              <li key={index}>{note}</li>
+                            ),
+                          )}
+                        </ul>
+                      </div>
+                    )}
+
+                    <p className="border-t border-slate-100 pt-3 text-xs leading-relaxed text-slate-400">
+                      Diperiksa pada:{" "}
+                      {new Date(validationResult.checked_at).toLocaleString(
+                        "id-ID",
+                        {
+                          dateStyle: "long",
+                          timeStyle: "short",
+                          timeZone: "Asia/Jakarta",
+                        },
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                <p className="mt-3 text-xs leading-relaxed text-slate-400">
+                  Hasil validasi otomatis merupakan indikator awal. Keputusan
+                  akhir penerimaan atau penolakan tetap berada pada admin.
                 </p>
               </div>
 

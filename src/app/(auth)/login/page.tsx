@@ -15,6 +15,7 @@ import {
   FiArrowRight,
   FiCheckCircle,
   FiAlertCircle,
+  FiArrowLeft,
   FiMapPin,
 } from "react-icons/fi";
 
@@ -36,90 +37,90 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   // Proses Login
-    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-      if (loading) return;
+    if (loading) return;
 
-      setLoading(true);
-      setErrorMessage("");
+    setLoading(true);
+    setErrorMessage("");
 
-      try {
-        // 1. Autentikasi menggunakan Supabase Auth
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
+    try {
+      // 1. Autentikasi menggunakan Supabase Auth
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        if (!data.user) {
-          throw new Error("Data pengguna tidak ditemukan.");
-        }
-
-        // 2. Ambil data profil pengguna
-        const { data: profile, error: profileError } = await supabase
-          .from("user_profiles")
-          .select("role, is_active")
-          .eq("id", data.user.id)
-          .maybeSingle();
-
-        if (profileError) {
-          throw profileError;
-        }
-
-        // 3. Pastikan profil tersedia
-        if (!profile) {
-          await supabase.auth.signOut();
-
-          throw new Error(
-            "Profil pengguna tidak ditemukan. Hubungi administrator.",
-          );
-        }
-
-        // 4. Periksa status akun
-        if (!profile.is_active) {
-          await supabase.auth.signOut();
-
-          throw new Error(
-            "Akun Anda sedang dinonaktifkan. Hubungi administrator.",
-          );
-        }
-
-        // 5. Cocokkan pilihan role dengan role database
-        if (profile.role !== role) {
-          await supabase.auth.signOut();
-
-          throw new Error(
-            `Akun ini bukan akun ${
-              role === "admin" ? "Admin" : "Petugas"
-            }. Silakan pilih peran yang sesuai.`,
-          );
-        }
-
-        // 6. Redirect sesuai role
-        if (profile.role === "admin") {
-          router.replace("/admin");
-        } else if (profile.role === "petugas") {
-          router.replace("/petugas");
-        } else {
-          await supabase.auth.signOut();
-
-          throw new Error("Role akun tidak dikenali.");
-        }
-
-        router.refresh();
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Terjadi kesalahan saat login.";
-
-        setErrorMessage(message);
-      } finally {
-        setLoading(false);
+      if (!data.user) {
+        throw new Error("Data pengguna tidak ditemukan.");
       }
-    };
+
+      // 2. Ambil data profil pengguna
+      const { data: profile, error: profileError } = await supabase
+        .from("user_profiles")
+        .select("role, is_active")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      // 3. Pastikan profil tersedia
+      if (!profile) {
+        await supabase.auth.signOut();
+
+        throw new Error(
+          "Profil pengguna tidak ditemukan. Hubungi administrator.",
+        );
+      }
+
+      // 4. Periksa status akun
+      if (!profile.is_active) {
+        await supabase.auth.signOut();
+
+        throw new Error(
+          "Akun Anda sedang dinonaktifkan. Hubungi administrator.",
+        );
+      }
+
+      // 5. Cocokkan pilihan role dengan role database
+      if (profile.role !== role) {
+        await supabase.auth.signOut();
+
+        throw new Error(
+          `Akun ini bukan akun ${
+            role === "admin" ? "Admin" : "Petugas"
+          }. Silakan pilih peran yang sesuai.`,
+        );
+      }
+
+      // 6. Redirect sesuai role
+      if (profile.role === "admin") {
+        router.replace("/admin");
+      } else if (profile.role === "petugas") {
+        router.replace("/petugas");
+      } else {
+        await supabase.auth.signOut();
+
+        throw new Error("Role akun tidak dikenali.");
+      }
+
+      router.refresh();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan saat login.";
+
+      setErrorMessage(message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
@@ -397,10 +398,11 @@ export default function LoginPage() {
           <div className="mt-8 border-t border-gray-100 pt-5 text-center">
             <Link
               href="/"
-              className="text-sm font-medium text-gray-500 transition hover:text-blue-600"
+              className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-blue-600"
             >
-              ← Kembali ke halaman utama
-            </Link>
+              <FiArrowLeft className="h-4 w-4" />
+              Kembali ke halaman utama
+            </Link> 
           </div>
         </section>
       </div>
