@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
 const poppins = Poppins({
