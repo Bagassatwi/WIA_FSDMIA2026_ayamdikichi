@@ -59,11 +59,9 @@ export function LaporanCard({ sort, setSort, resetFilters, filteredReports }: {
         }
 
         return <article key={report.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white transition-colors hover:border-blue-300">
-          {
-            /* Illustration placeholder */
-          }
-          <div className="flex aspect-16/10 items-center justify-center bg-slate-100">
-            {linkPhoto && <Image src={linkPhoto} alt={report.title} width={1000} height={1000} className="bg-cover" />}
+          { /* Illustration placeholder */}
+          <div className="aspect-16/10 bg-slate-100  w-76.25 h-50 overflow-hidden flex justify-center">
+            {linkPhoto && <Image src={linkPhoto} alt={report.title} width={305} height={200} className="object-cover" />}
             {
               /* <div className="text-center">
                <FiFileText
