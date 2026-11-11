@@ -50,7 +50,7 @@ export default function BuatLaporanPage() {
     setStep(1);
 
     // Reset seluruh data form
-    
+
 
     // Reset foto yang dipilih
     setPhotos([]);
@@ -206,12 +206,18 @@ export default function BuatLaporanPage() {
   const [priv, setPriv] = useState("anonymous");
   const [agree, setAgree] = useState(false);
 
-  const today = new Date();
-  const localToday = new Date(
-    today.getTime() - today.getTimezoneOffset() * 60000,
-  )
-    .toISOString()
-    .split("T")[0];
+  const [localToday, setLocalToday] = useState<string>("");
+
+  useEffect(() => {
+    const today = new Date();
+    const formatted = new Date(
+      today.getTime() - today.getTimezoneOffset() * 60000,
+    )
+      .toISOString()
+      .split("T")[0];
+
+    setLocalToday(formatted);
+  }, []);
 
   useEffect(() => {
     const handlePageShow = () => {
@@ -376,8 +382,8 @@ export default function BuatLaporanPage() {
       if (possibleDuplicate === true) {
         const proceed = window.confirm(
           "PERHATIAN: Sistem menemukan kemungkinan laporan serupa dengan laporan yang sudah ada.\n\n" +
-            "Pastikan laporan ini bukan laporan yang sama.\n\n" +
-            "Apakah Anda tetap ingin melanjutkan pengiriman?",
+          "Pastikan laporan ini bukan laporan yang sama.\n\n" +
+          "Apakah Anda tetap ingin melanjutkan pengiriman?",
         );
 
         // Batalkan jika pengguna memilih Cancel
@@ -663,13 +669,12 @@ export default function BuatLaporanPage() {
                         className="flex w-full flex-col items-center gap-2 text-center"
                       >
                         <span
-                          className={`flex h-10 w-10 items-center justify-center rounded-full transition sm:h-11 sm:w-11 ${
-                            isCompleted
+                          className={`flex h-10 w-10 items-center justify-center rounded-full transition sm:h-11 sm:w-11 ${isCompleted
                               ? "bg-green-100 text-green-700"
                               : isActive
                                 ? "bg-blue-600 text-white"
                                 : "bg-gray-100 text-gray-400"
-                          }`}
+                            }`}
                         >
                           {isCompleted ? (
                             <FiCheck size={19} />
@@ -679,13 +684,12 @@ export default function BuatLaporanPage() {
                         </span>
 
                         <span
-                          className={`text-[11px] font-medium sm:text-sm ${
-                            isActive
+                          className={`text-[11px] font-medium sm:text-sm ${isActive
                               ? "text-blue-700"
                               : isCompleted
                                 ? "text-green-700"
                                 : "text-gray-400"
-                          }`}
+                            }`}
                         >
                           {item.label}
                         </span>
@@ -697,15 +701,14 @@ export default function BuatLaporanPage() {
 
               <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-gray-100">
                 <div
-                  className={`h-full rounded-full bg-blue-600 transition-all duration-300 ${
-                    step === 1
+                  className={`h-full rounded-full bg-blue-600 transition-all duration-300 ${step === 1
                       ? "w-1/4"
                       : step === 2
                         ? "w-2/4"
                         : step === 3
                           ? "w-3/4"
                           : "w-full"
-                  }`}
+                    }`}
                 />
               </div>
             </div>

@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   description:
     "Setiap laporan warga punya jejak penanganan yang terbuka: siapa menangani, kapan, dan bukti apa yang ditunjukkan sebelum laporan dinyatakan selesai.",
 };
+export const dynamic = "force-dynamic"
 
 export default function RootLayout({
   children,
