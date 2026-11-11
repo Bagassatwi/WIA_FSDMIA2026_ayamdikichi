@@ -1,18 +1,12 @@
+
 import type { Metadata } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
-import './globals.css';
+import { Poppins } from "next/font/google";
+import "./globals.css";
 
-const inter = Inter({
+const poppins = Poppins({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--ff-b",
-  display: "swap",
-});
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--ff-h",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-poppins",
   display: "swap",
 });
 
@@ -28,11 +22,8 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="id"
-      className={`${inter.variable} ${plusJakartaSans.variable}`}
-    >
-      <body className="flex justify-center items-center min-h-screen bg-slate-50 text-slate-900 antialiased">
+    <html lang="id" className={poppins.variable}>
+      <body className="flex min-h-screen items-center justify-center bg-slate-50 font-sans text-slate-900 antialiased">
         {children}
       </body>
     </html>
