@@ -208,7 +208,6 @@ export default function Topbar() {
                 <User size={30} strokeWidth={1.8} />
               </div>
 
-
               {/* Content */}
               <div className="mt-5">
                 <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-600">
