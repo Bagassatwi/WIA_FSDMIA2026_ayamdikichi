@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Search,
   ClipboardCheck,
@@ -22,18 +28,12 @@ import {
 import { supabase } from "@/lib/supabase";
 
 type ResultStatus = "pending_review" | "approved" | "revision_requested";
-
-type AssignmentStatus =
-  | "assigned"
-  | "in_progress"
-  | "submitted"
-  | "completed"
-  | "cancelled";
-
+type AssignmentStatus = "assigned" | "in_progress" | "completed" | "cancelled";
 type ReportStatus = "Dalam Penanganan" | "Menunggu Pemeriksaan" | "Selesai";
 
 type HandlingPhoto = {
   id: string;
+  result_id: string;
   storage_path: string;
   file_name: string | null;
   file_size: number | null;
@@ -81,6 +81,7 @@ const formatDate = (value?: string | null) => {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: "Asia/Jakarta",
   }).format(date);
 };
 
@@ -102,7 +103,7 @@ const getDisplayStatus = (
     return "Selesai";
   }
 
-  if (assignmentStatus === "submitted" || resultStatus === "pending_review") {
+  if (resultStatus === "pending_review") {
     return "Menunggu Pemeriksaan";
   }
 
@@ -119,7 +120,6 @@ export default function HasilPenangananPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
-
   const [errorMessage, setErrorMessage] = useState("");
 
   // =====================================================
@@ -139,16 +139,7 @@ export default function HasilPenangananPage() {
       // 1. Ambil data penugasan
       const { data: assignments, error: assignmentError } = await supabase
         .from("report_assignments")
-        .select(
-          `
-          id,
-          report_id,
-          officer_id,
-          deadline,
-          status,
-          assigned_at
-        `,
-        )
+        .select("id, report_id, officer_id, deadline, status, assigned_at")
         .neq("status", "cancelled")
         .order("assigned_at", { ascending: false });
 
@@ -168,81 +159,69 @@ export default function HasilPenangananPage() {
 
       const assignmentIds = assignments.map((item) => item.id);
 
-      // 2. Ambil data laporan
-      const { data: reportData, error: reportError } = await supabase
-        .from("reports")
-        .select(
-          `
-          id,
-          report_code,
-          title,
-          category,
-          province,
-          city,
-          district,
-          address
-        `,
-        )
-        .in("id", reportIds);
+      // 2. Ambil data laporan dan petugas
+      const [reportResponse, officerResponse] = await Promise.all([
+        supabase
+          .from("reports")
+          .select(
+            "id, report_code, title, category, province, city, district, address",
+          )
+          .in("id", reportIds),
 
-      if (reportError) throw reportError;
+        supabase
+          .from("user_profiles")
+          .select("id, full_name")
+          .in("id", officerIds),
+      ]);
 
-      // 3. Ambil nama petugas
-      const { data: officerData, error: officerError } = await supabase
-        .from("user_profiles")
-        .select("id, full_name")
-        .in("id", officerIds);
+      if (reportResponse.error) throw reportResponse.error;
+      if (officerResponse.error) throw officerResponse.error;
 
-      if (officerError) throw officerError;
-
-      // 4. Ambil hasil penanganan
+      // 3. Ambil seluruh hasil penanganan
       const { data: resultData, error: resultError } = await supabase
         .from("report_handling_results")
         .select(
-          `
-          id,
-          assignment_id,
-          report_id,
-          officer_id,
-          description,
-          status,
-          submitted_at,
-          reviewed_by,
-          review_notes,
-          reviewed_at
-        `,
+          "id, assignment_id, report_id, officer_id, description, status, activity_type, submitted_at, reviewed_by, review_notes, reviewed_at",
         )
-        .in("assignment_id", assignmentIds);
+        .in("assignment_id", assignmentIds)
+        .order("submitted_at", { ascending: false });
 
       if (resultError) throw resultError;
 
-      const resultIds = (resultData || []).map((item) => item.id);
+      // Ambil pengajuan completion terbaru per penugasan.
+      // Hasil progress tidak boleh menggantikan pengajuan penyelesaian.
+      const completionByAssignment = new Map<string, any>();
 
-      // 5. Ambil metadata foto
-      let photoData: any[] = [];
+      for (const item of resultData || []) {
+        if (item.activity_type !== "completion") continue;
+
+        if (!completionByAssignment.has(item.assignment_id)) {
+          completionByAssignment.set(item.assignment_id, item);
+        }
+      }
+
+      const resultIds = [...completionByAssignment.values()].map(
+        (item) => item.id,
+      );
+
+      // 4. Ambil metadata foto
+      let photoData: Omit<HandlingPhoto, "signed_url">[] = [];
 
       if (resultIds.length > 0) {
         const { data, error: photoError } = await supabase
           .from("report_handling_photos")
           .select(
-            `
-            id,
-            result_id,
-            storage_path,
-            file_name,
-            file_size,
-            mime_type
-          `,
+            "id, result_id, storage_path, file_name, file_size, mime_type",
           )
           .in("result_id", resultIds);
 
         if (photoError) throw photoError;
 
-        photoData = data || [];
+        photoData = (data || []) as Omit<HandlingPhoto, "signed_url">[];
       }
 
-      // 6. Buat signed URL untuk foto private
-      const photosWithUrls = await Promise.all(
+      // 5. Buat signed URL untuk foto private
+      const photosWithUrls: HandlingPhoto[] = await Promise.all(
         photoData.map(async (photo) => {
           const { data: signedData, error: signedError } =
             await supabase.storage
@@ -251,7 +230,7 @@ export default function HasilPenangananPage() {
 
           if (signedError) {
             console.error(
-              "Gagal membuat signed URL:",
+              "Gagal membuat signed URL foto:",
               photo.storage_path,
               signedError,
             );
@@ -264,19 +243,17 @@ export default function HasilPenangananPage() {
         }),
       );
 
-      // 7. Gabungkan seluruh data
+      // 6. Gabungkan data
       const mappedReports: Report[] = assignments.map((assignment) => {
-        const report = reportData?.find(
+        const report = reportResponse.data?.find(
           (item) => item.id === assignment.report_id,
         );
 
-        const officer = officerData?.find(
+        const officer = officerResponse.data?.find(
           (item) => item.id === assignment.officer_id,
         );
 
-        const result = resultData?.find(
-          (item) => item.assignment_id === assignment.id,
-        );
+        const result = completionByAssignment.get(assignment.id);
 
         const photos = result
           ? photosWithUrls.filter((photo) => photo.result_id === result.id)
@@ -291,10 +268,8 @@ export default function HasilPenangananPage() {
           .filter(Boolean)
           .join(", ");
 
-        const displayStatus = getDisplayStatus(
-          assignment.status as AssignmentStatus,
-          result?.status as ResultStatus | null,
-        );
+        const resultStatus =
+          (result?.status as ResultStatus | undefined) || null;
 
         return {
           id: assignment.id,
@@ -309,15 +284,18 @@ export default function HasilPenangananPage() {
           assignedDate: formatDate(assignment.assigned_at),
           deadline: formatDate(assignment.deadline),
           assignmentStatus: assignment.status as AssignmentStatus,
-          status: displayStatus,
+          status: getDisplayStatus(
+            assignment.status as AssignmentStatus,
+            resultStatus,
+          ),
           resultId: result?.id || null,
-          resultStatus: (result?.status as ResultStatus) || null,
+          resultStatus,
           result: result?.description || "",
           submittedDate: result?.submitted_at
             ? formatDate(result.submitted_at)
             : undefined,
           completedDate:
-            result?.status === "approved" && result?.reviewed_at
+            resultStatus === "approved" && result?.reviewed_at
               ? formatDate(result.reviewed_at)
               : undefined,
           photos,
@@ -346,7 +324,7 @@ export default function HasilPenangananPage() {
   }, []);
 
   useEffect(() => {
-    fetchReports();
+    void fetchReports();
   }, [fetchReports]);
 
   // =====================================================
@@ -371,15 +349,15 @@ export default function HasilPenangananPage() {
   }, [reports, search, statusFilter]);
 
   const totalInProgress = reports.filter(
-    (report) => report.status === "Dalam Penanganan",
+    (item) => item.status === "Dalam Penanganan",
   ).length;
 
   const totalReview = reports.filter(
-    (report) => report.status === "Menunggu Pemeriksaan",
+    (item) => item.status === "Menunggu Pemeriksaan",
   ).length;
 
   const totalCompleted = reports.filter(
-    (report) => report.status === "Selesai",
+    (item) => item.status === "Selesai",
   ).length;
 
   // =====================================================
@@ -388,13 +366,13 @@ export default function HasilPenangananPage() {
 
   const handleReview = async (decision: "approved" | "revision_requested") => {
     if (!selectedReport?.resultId) {
-      alert("Hasil penanganan belum tersedia.");
+      alert("Pengajuan penyelesaian belum tersedia.");
       return;
     }
 
     if (selectedReport.resultStatus !== "pending_review") {
       alert(
-        "Hasil ini sudah diperiksa atau tidak sedang menunggu pemeriksaan.",
+        "Pengajuan ini sudah diperiksa atau tidak sedang menunggu pemeriksaan.",
       );
       return;
     }
@@ -406,57 +384,37 @@ export default function HasilPenangananPage() {
 
     const confirmation =
       decision === "approved"
-        ? "Apakah kamu yakin ingin menyetujui hasil penanganan ini?"
-        : "Apakah kamu yakin ingin meminta petugas melakukan revisi?";
+        ? "Setujui hasil penanganan ini dan tandai laporan sebagai selesai?"
+        : "Kirim permintaan revisi kepada petugas?";
 
     if (!window.confirm(confirmation)) return;
 
     try {
       setSaving(true);
 
-      // Ambil admin yang sedang login
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser();
 
-      if (authError || !user) {
-        throw new Error("Sesi login tidak valid.");
+      if (authError || !authData.user) {
+        throw new Error("Sesi login admin tidak valid.");
       }
 
-      // Update hasil penanganan
-      const { error: resultUpdateError } = await supabase
-        .from("report_handling_results")
-        .update({
-          status: decision,
-          reviewed_by: user.id,
-          review_notes: reviewNotes.trim() || null,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", selectedReport.resultId)
-        .eq("status", "pending_review");
+      // RPC memperbarui hasil, penugasan, dan laporan secara atomik.
+      const { error: rpcError } = await supabase.rpc(
+        "admin_review_handling_result",
+        {
+          p_result_id: selectedReport.resultId,
+          p_decision: decision,
+          p_review_notes: reviewNotes.trim() || null,
+        },
+      );
 
-      if (resultUpdateError) throw resultUpdateError;
-
-      // Jika disetujui, selesaikan penugasan
-      if (decision === "approved") {
-        const { error: assignmentUpdateError } = await supabase
-          .from("report_assignments")
-          .update({
-            status: "completed",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", selectedReport.assignmentId);
-
-        if (assignmentUpdateError) {
-          throw assignmentUpdateError;
-        }
-      }
+      if (rpcError) throw rpcError;
 
       alert(
         decision === "approved"
-          ? "Hasil penanganan berhasil disetujui."
-          : "Permintaan revisi berhasil dikirim.",
+          ? "Hasil penanganan disetujui. Laporan telah ditandai selesai."
+          : "Permintaan revisi berhasil dikirim kepada petugas.",
       );
 
       setReviewNotes("");
@@ -464,13 +422,7 @@ export default function HasilPenangananPage() {
 
       await fetchReports(true);
     } catch (error: any) {
-      console.error("REVIEW HASIL ERROR:", {
-        message: error?.message,
-        code: error?.code,
-        details: error?.details,
-        hint: error?.hint,
-        fullError: error,
-      });
+      console.error("REVIEW HASIL ERROR:", error);
 
       alert(
         [
@@ -508,12 +460,12 @@ export default function HasilPenangananPage() {
             Hasil Penanganan
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Pantau dan periksa hasil penanganan laporan oleh petugas.
+            Pantau dan periksa pengajuan penyelesaian laporan dari petugas.
           </p>
         </div>
 
         <button
-          onClick={() => fetchReports(true)}
+          onClick={() => void fetchReports(true)}
           disabled={refreshing}
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
         >
@@ -537,49 +489,27 @@ export default function HasilPenangananPage() {
 
       {/* Statistics */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Dalam Penanganan</p>
-              <h2 className="mt-2 text-2xl font-bold text-blue-700">
-                {loading ? "-" : totalInProgress}
-              </h2>
-            </div>
-            <div className="rounded-lg bg-blue-50 p-3">
-              <Clock3 className="h-6 w-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label="Dalam Penanganan"
+          value={loading ? "-" : totalInProgress}
+          icon={<Clock3 className="h-6 w-6 text-blue-600" />}
+          color="blue"
+        />
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Menunggu Pemeriksaan</p>
-              <h2 className="mt-2 text-2xl font-bold text-amber-600">
-                {loading ? "-" : totalReview}
-              </h2>
-            </div>
-            <div className="rounded-lg bg-amber-50 p-3">
-              <ClipboardCheck className="h-6 w-6 text-amber-600" />
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label="Menunggu Pemeriksaan"
+          value={loading ? "-" : totalReview}
+          icon={<ClipboardCheck className="h-6 w-6 text-amber-600" />}
+          color="amber"
+        />
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Selesai</p>
-              <h2 className="mt-2 text-2xl font-bold text-emerald-600">
-                {loading ? "-" : totalCompleted}
-              </h2>
-            </div>
-            <div className="rounded-lg bg-emerald-50 p-3">
-              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label="Selesai"
+          value={loading ? "-" : totalCompleted}
+          icon={<CheckCircle2 className="h-6 w-6 text-emerald-600" />}
+          color="emerald"
+        />
       </div>
-
       {/* Main Content */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="flex flex-col gap-4 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
@@ -588,25 +518,26 @@ export default function HasilPenangananPage() {
               Daftar Hasil Penanganan
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Laporan yang sedang dan telah ditangani petugas.
+              Pengajuan penyelesaian dan riwayat penanganan petugas.
             </p>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
               <input
                 type="text"
                 placeholder="Cari laporan atau petugas..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(event) => setSearch(event.target.value)}
                 className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:w-64"
               />
             </div>
 
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(event) => setStatusFilter(event.target.value)}
               className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-600 outline-none focus:border-blue-500"
             >
               <option>Semua Status</option>
@@ -651,9 +582,11 @@ export default function HasilPenangananPage() {
                         <p className="text-sm font-semibold text-slate-800">
                           {report.title}
                         </p>
+
                         <p className="mt-1 text-xs text-slate-500">
                           {report.reportCode} • {report.category}
                         </p>
+
                         <div className="mt-2 flex items-center gap-1 text-xs text-slate-400">
                           <MapPin className="h-3.5 w-3.5 shrink-0" />
                           {report.location}
@@ -685,10 +618,12 @@ export default function HasilPenangananPage() {
                       <td className="px-5 py-4 text-center">
                         <button
                           onClick={() => openDetail(report)}
-                          className="inline-flex items-center gap-2 cursor-pointer rounded-lg border border-blue-200 px-3 py-2 text-xs font-medium text-blue-700 transition hover:bg-blue-50"
+                          className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-blue-200 px-3 py-2 text-xs font-medium text-blue-700 transition hover:bg-blue-50"
                         >
                           <Eye className="h-4 w-4" />
-                          Periksa
+                          {report.resultStatus === "pending_review"
+                            ? "Periksa"
+                            : "Detail"}
                         </button>
                       </td>
                     </tr>
@@ -711,7 +646,7 @@ export default function HasilPenangananPage() {
         </div>
 
         <div className="border-t border-slate-200 px-5 py-4 text-xs text-slate-500">
-          Menampilkan {filteredReports.length} dari {reports.length} laporan
+          Menampilkan {filteredReports.length} dari {reports.length} penugasan
         </div>
       </div>
 
@@ -725,6 +660,7 @@ export default function HasilPenangananPage() {
                 <h2 className="font-semibold text-slate-800">
                   Detail Hasil Penanganan
                 </h2>
+
                 <p className="mt-1 text-xs text-slate-500">
                   {selectedReport.reportCode}
                 </p>
@@ -733,7 +669,7 @@ export default function HasilPenangananPage() {
               <button
                 onClick={() => setSelectedReport(null)}
                 disabled={saving}
-                className="rounded-lg p-2 cursor-pointer text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-lg p-2 text-slate-400 cursor-pointer transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -759,38 +695,26 @@ export default function HasilPenangananPage() {
 
               {/* Assignment Information */}
               <div className="grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
-                <div>
-                  <p className="text-xs text-slate-400">Petugas</p>
-                  <p className="mt-1 text-sm font-medium text-slate-700">
-                    {selectedReport.officer}
-                  </p>
-                </div>
+                <Info label="Petugas" value={selectedReport.officer} />
 
-                <div>
-                  <p className="text-xs text-slate-400">Tanggal Penugasan</p>
-                  <p className="mt-1 text-sm font-medium text-slate-700">
-                    {selectedReport.assignedDate}
-                  </p>
-                </div>
+                <Info
+                  label="Tanggal Penugasan"
+                  value={selectedReport.assignedDate}
+                />
 
-                <div>
-                  <p className="text-xs text-slate-400">Tenggat Penanganan</p>
-                  <p className="mt-1 text-sm font-medium text-slate-700">
-                    {selectedReport.deadline}
-                  </p>
-                </div>
+                <Info
+                  label="Tenggat Penanganan"
+                  value={selectedReport.deadline}
+                />
 
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Tanggal Pengiriman Hasil
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-slate-700">
-                    {selectedReport.submittedDate || "-"}
-                  </p>
-                </div>
+                <Info
+                  label="Tanggal Pengiriman Hasil"
+                  value={selectedReport.submittedDate || "-"}
+                />
 
                 <div className="sm:col-span-2">
                   <p className="text-xs text-slate-400">Lokasi</p>
+
                   <p className="mt-1 flex items-center gap-2 text-sm font-medium text-slate-700">
                     <MapPin className="h-4 w-4 text-slate-400" />
                     {selectedReport.location}
@@ -802,7 +726,7 @@ export default function HasilPenangananPage() {
               <div>
                 <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
                   <FileText className="h-4 w-4 text-blue-600" />
-                  Hasil Penanganan Petugas
+                  Hasil Penyelesaian Petugas
                 </h4>
 
                 {selectedReport.result ? (
@@ -812,8 +736,9 @@ export default function HasilPenangananPage() {
                 ) : (
                   <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center">
                     <AlertCircle className="mx-auto h-6 w-6 text-slate-400" />
+
                     <p className="mt-2 text-sm text-slate-500">
-                      Petugas belum mengirimkan hasil penanganan.
+                      Petugas belum mengirimkan pengajuan penyelesaian.
                     </p>
                   </div>
                 )}
@@ -843,6 +768,7 @@ export default function HasilPenangananPage() {
                             rel="noreferrer"
                             className="block"
                           >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={photo.signed_url}
                               alt={photo.file_name || "Bukti penanganan"}
@@ -859,6 +785,7 @@ export default function HasilPenangananPage() {
                           <p className="truncate text-xs font-medium text-slate-700">
                             {photo.file_name || "Foto bukti"}
                           </p>
+
                           <p className="mt-1 text-[11px] text-slate-400">
                             {formatFileSize(photo.file_size)}
                           </p>
@@ -869,13 +796,13 @@ export default function HasilPenangananPage() {
                 ) : (
                   <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center">
                     <ImageIcon className="mx-auto h-6 w-6 text-slate-400" />
+
                     <p className="mt-2 text-sm text-slate-500">
-                      Belum ada bukti dokumentasi.
+                      Belum ada bukti dokumentasi pada pengajuan ini.
                     </p>
                   </div>
                 )}
               </div>
-
               {/* Review Notes */}
               {selectedReport.resultStatus === "pending_review" && (
                 <div>
@@ -885,7 +812,7 @@ export default function HasilPenangananPage() {
 
                   <textarea
                     value={reviewNotes}
-                    onChange={(e) => setReviewNotes(e.target.value)}
+                    onChange={(event) => setReviewNotes(event.target.value)}
                     rows={3}
                     placeholder="Isi catatan jika ada revisi yang perlu dilakukan petugas..."
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -903,14 +830,34 @@ export default function HasilPenangananPage() {
                   <p className="text-sm font-semibold text-amber-800">
                     Hasil Memerlukan Revisi
                   </p>
+
                   <p className="mt-2 whitespace-pre-wrap text-sm text-amber-700">
                     {selectedReport.reviewNotes || "Tidak ada catatan."}
                   </p>
                 </div>
               )}
 
+              {/* Approved Information */}
+              {selectedReport.resultStatus === "approved" && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                  <p className="text-sm font-semibold text-emerald-800">
+                    Hasil telah disetujui
+                  </p>
+
+                  <p className="mt-1 text-sm text-emerald-700">
+                    Laporan telah ditandai selesai.
+                  </p>
+
+                  {selectedReport.completedDate && (
+                    <p className="mt-1 text-xs text-emerald-600">
+                      Diperiksa: {selectedReport.completedDate}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Review Actions */}
-              {selectedReport.resultStatus === "pending_review" && (
+              {selectedReport.resultStatus === "pending_review" ? (
                 <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
                   <button
                     onClick={() => setSelectedReport(null)}
@@ -921,9 +868,9 @@ export default function HasilPenangananPage() {
                   </button>
 
                   <button
-                    onClick={() => handleReview("revision_requested")}
+                    onClick={() => void handleReview("revision_requested")}
                     disabled={saving}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-300 px-4 py-2.5 text-sm font-medium text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 cursor-pointer rounded-lg border border-amber-300 px-4 py-2.5 text-sm font-medium text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
                   >
                     {saving ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -934,9 +881,9 @@ export default function HasilPenangananPage() {
                   </button>
 
                   <button
-                    onClick={() => handleReview("approved")}
+                    onClick={() => void handleReview("approved")}
                     disabled={saving}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                    className="inline-flex items-center justify-center cursor-pointer gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
                   >
                     {saving ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -946,14 +893,11 @@ export default function HasilPenangananPage() {
                     Setujui Hasil
                   </button>
                 </div>
-              )}
-
-              {/* Other Status */}
-              {selectedReport.resultStatus !== "pending_review" && (
+              ) : (
                 <div className="flex justify-end border-t border-slate-200 pt-5">
                   <button
                     onClick={() => setSelectedReport(null)}
-                    className="rounded-lg border border-slate-200  cursor-pointer  px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                    className="rounded-lg border border-slate-200 px-4 py-2.5 cursor-pointer text-sm font-medium text-slate-600 hover:bg-slate-50"
                   >
                     Tutup
                   </button>
@@ -963,6 +907,64 @@ export default function HasilPenangananPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// =====================================================
+// KOMPONEN STATISTIK
+// =====================================================
+
+function StatCard({
+  label,
+  value,
+  icon,
+  color,
+}: {
+  label: string;
+  value: string | number;
+  icon: ReactNode;
+  color: "blue" | "amber" | "emerald";
+}) {
+  const backgrounds = {
+    blue: "bg-blue-50",
+    amber: "bg-amber-50",
+    emerald: "bg-emerald-50",
+  };
+
+  const values = {
+    blue: "text-blue-700",
+    amber: "text-amber-600",
+    emerald: "text-emerald-600",
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-slate-500">{label}</p>
+
+          <h2 className={`mt-2 text-2xl font-bold ${values[color]}`}>
+            {value}
+          </h2>
+        </div>
+
+        <div className={`rounded-lg p-3 ${backgrounds[color]}`}>{icon}</div>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
+// KOMPONEN INFORMASI
+// =====================================================
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-slate-400">{label}</p>
+
+      <p className="mt-1 text-sm font-medium text-slate-700">{value}</p>
     </div>
   );
 }

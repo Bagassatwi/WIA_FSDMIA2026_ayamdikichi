@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { getCategoryLabel } from "@/lib/category";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import { LuExternalLink } from "react-icons/lu";
 import L from "leaflet";
@@ -14,17 +15,26 @@ const statusColors: Record<string, string> = {
   pending: "#D97706",
   verified: "#059669",
   rejected: "#DC2626",
+  assigned: "#2563EB",
+  in_progress: "#7C3AED",
+  completed: "#059669",
 };
 
+// Label status
 const statusLabels: Record<string, string> = {
   pending: "Menunggu Verifikasi",
   verified: "Terverifikasi",
   rejected: "Ditolak",
+  assigned: "Telah Ditugaskan",
+  in_progress: "Sedang Ditangani",
+  completed: "Selesai",
 };
 
 // Membuat icon marker Leaflet
 function createStatusIcon(status: string) {
-  const color = statusColors[status] ?? "#64748B";
+  const normalizedStatus = status?.trim().toLowerCase();
+
+  const color = statusColors[normalizedStatus] ?? "#64748B";
 
   return L.divIcon({
     className: "report-marker",
@@ -32,7 +42,7 @@ function createStatusIcon(status: string) {
       <div style="
         width: 20px;
         height: 20px;
-        background: ${color};
+        background-color: ${color};
         border: 3px solid white;
         border-radius: 50%;
         box-shadow: 0 2px 7px rgba(0,0,0,0.35);
@@ -111,13 +121,20 @@ export default function ReportMap({ reports, onSelectReport }: ReportMapProps) {
 
                 <h3 className="font-semibold text-slate-900">{report.title}</h3>
 
-                <div className="text-xs text-slate-500">{report.category}</div>
+                <div className="text-xs text-slate-500">
+                  {getCategoryLabel(report.category)}
+                </div>
 
                 <div
-                  style={{ color: statusColors[report.status] }}
+                  style={{
+                    color:
+                      statusColors[report.status?.trim().toLowerCase()] ??
+                      "#64748B",
+                  }}
                   className="text-xs font-semibold"
                 >
-                  {statusLabels[report.status] ?? report.status}
+                  {statusLabels[report.status?.trim().toLowerCase()] ??
+                    report.status}
                 </div>
 
                 <div className="text-xs text-slate-600">

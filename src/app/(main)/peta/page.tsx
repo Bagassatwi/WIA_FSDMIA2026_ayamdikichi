@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
 import dynamic from "next/dynamic";
-
+import { getCategoryLabel } from "@/lib/category";
 import { supabase } from "@/lib/supabase";
-
 import type { Report } from "@/types/report";
 
 import { FiSearch, FiRotateCcw } from "react-icons/fi";
@@ -18,6 +16,10 @@ import {
   Images,
 } from "lucide-react";
 
+// ==========================================
+// TYPE FOTO LAPORAN
+// ==========================================
+
 type ReportPhoto = {
   id: string;
   report_id: string;
@@ -25,16 +27,36 @@ type ReportPhoto = {
   file_name: string | null;
   photo_url: string | null;
 };
-// Leaflet hanya dirender di browser
+
+// ==========================================
+// PENGAMBILAN URL FOTO
+// Menggunakan metode yang sama dengan Page Laporan
+// ==========================================
+
+const getPhoto = (storagePath: string) => {
+  const { data } = supabase.storage
+    .from("report-photo")
+    .getPublicUrl(storagePath);
+
+  return data.publicUrl;
+};
+
+// ==========================================
+// DYNAMIC IMPORT LEAFLET
+// ==========================================
+
 const ReportMap = dynamic(() => import("../_components/peta/ReportMap"), {
   ssr: false,
-
   loading: () => (
     <div className="flex h-[520px] items-center justify-center rounded-xl bg-slate-100">
       Memuat peta...
     </div>
   ),
 });
+
+// ==========================================
+// KATEGORI LAPORAN
+// ==========================================
 
 const categories = [
   { label: "Infrastruktur Jalan", value: "jalan" },
@@ -44,30 +66,54 @@ const categories = [
   { label: "Lingkungan", value: "ling" },
 ];
 
+// ==========================================
+// STATUS LAPORAN
+// ==========================================
 const statuses = [
   { label: "Menunggu Verifikasi", value: "pending" },
   { label: "Terverifikasi", value: "verified" },
   { label: "Ditolak", value: "rejected" },
+  { label: "Telah Ditugaskan", value: "assigned" },
+  { label: "Sedang Ditangani", value: "in_progress" },
+  { label: "Selesai", value: "completed" },
 ];
 
 const statusColors: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700",
   verified: "bg-emerald-50 text-emerald-700",
   rejected: "bg-red-50 text-red-700",
+  assigned: "bg-blue-50 text-blue-700",
+  in_progress: "bg-violet-50 text-violet-700",
+  completed: "bg-emerald-50 text-emerald-700",
 };
+
+// ==========================================
+// MAIN PAGE
+// ==========================================
 
 export default function PetaLaporan() {
   const [reports, setReports] = useState<Report[]>([]);
+
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+
   const [reportPhotos, setReportPhotos] = useState<ReportPhoto[]>([]);
+
   const [photosLoading, setPhotosLoading] = useState(false);
   const [photosError, setPhotosError] = useState<string | null>(null);
+
   const [keyword, setKeyword] = useState("");
+
   const [selectedCategory, setSelectedCategory] = useState<string[]>([]);
+
   const [selectedStatus, setSelectedStatus] = useState<string[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Mengambil laporan dari Supabase
+
+  // ==========================================
+  // MENGAMBIL DATA LAPORAN
+  // ==========================================
+
   useEffect(() => {
     let active = true;
 
@@ -76,9 +122,7 @@ export default function PetaLaporan() {
       setError(null);
 
       const { data, error } = await supabase
-
         .from("reports_public")
-
         .select(
           `
           id,
@@ -97,7 +141,6 @@ export default function PetaLaporan() {
           created_at
         `,
         )
-
         .order("created_at", { ascending: false });
 
       if (!active) return;
@@ -106,7 +149,6 @@ export default function PetaLaporan() {
         console.error("Gagal mengambil laporan:", error);
 
         setError("Gagal memuat data laporan.");
-
         setLoading(false);
 
         return;
@@ -121,7 +163,6 @@ export default function PetaLaporan() {
       ) as Report[];
 
       setReports(validReports);
-
       setLoading(false);
     }
 
@@ -131,9 +172,12 @@ export default function PetaLaporan() {
       active = false;
     };
   }, []);
-  // Mengambil foto dari tabel report_photos saat laporan dipilih.
-  // createSignedUrl digunakan agar bucket bisa tetap Private,
-  // selama policy SELECT mengizinkan akses anon ke foto laporan publik.
+
+  // ==========================================
+  // MENGAMBIL FOTO LAPORAN
+  // Menggunakan getPublicUrl seperti Page Laporan
+  // ==========================================
+
   useEffect(() => {
     let active = true;
 
@@ -156,44 +200,27 @@ export default function PetaLaporan() {
 
         if (error) throw error;
 
-        const photosWithUrls = await Promise.all(
-          (data ?? []).map(async (photo) => {
-            const { data: signedData, error: signedError } =
-              await supabase.storage
-                .from("report-photo")
-                .createSignedUrl(photo.storage_path, 60 * 60);
-
-            if (signedError) {
-              console.error(
-                "Gagal membuat URL foto:",
-                photo.storage_path,
-                signedError,
-              );
-              return {
-                ...photo,
-                photo_url: null,
-              };
-            }
-
-            return {
-              ...photo,
-              photo_url: signedData?.signedUrl ?? null,
-            };
-          }),
-        );
+        // Membuat URL foto menggunakan getPublicUrl
+        const photosWithUrls: ReportPhoto[] = (data ?? []).map((photo) => ({
+          ...photo,
+          photo_url: getPhoto(photo.storage_path),
+        }));
 
         if (active) {
           setReportPhotos(photosWithUrls);
         }
       } catch (err) {
         console.error("Gagal mengambil foto laporan:", err);
+
         if (active) {
           setPhotosError(
             "Foto laporan belum dapat dimuat. Periksa izin akses tabel dan bucket.",
           );
         }
       } finally {
-        if (active) setPhotosLoading(false);
+        if (active) {
+          setPhotosLoading(false);
+        }
       }
     }
 
@@ -204,7 +231,10 @@ export default function PetaLaporan() {
     };
   }, [selectedReport?.id]);
 
-  // Filter laporan
+  // ==========================================
+  // FILTER LAPORAN
+  // ==========================================
+
   const filteredReports = useMemo(() => {
     return reports.filter((report) => {
       const searchText = [
@@ -230,12 +260,13 @@ export default function PetaLaporan() {
       return matchesKeyword && matchesCategory && matchesStatus;
     });
   }, [reports, keyword, selectedCategory, selectedStatus]);
-  // Toggle filter
+
+  // ==========================================
+  // TOGGLE FILTER
+  // ==========================================
+
   function toggleFilter(
     value: string,
-
-    selected: string[],
-
     setter: React.Dispatch<React.SetStateAction<string[]>>,
   ) {
     setter((current) =>
@@ -245,19 +276,26 @@ export default function PetaLaporan() {
     );
   }
 
+  // ==========================================
+  // RESET FILTER
+  // ==========================================
+
   function resetFilters() {
     setKeyword("");
-
     setSelectedCategory([]);
-
     setSelectedStatus([]);
-
     setSelectedReport(null);
+    setReportPhotos([]);
+    setPhotosError(null);
   }
+
+  // ==========================================
+  // RENDER PAGE
+  // ==========================================
 
   return (
     <main className="min-h-screen bg-white text-slate-800">
-      {/* Header */}
+      {/* HEADER */}
 
       <section className="border-b border-slate-200 bg-slate-50 px-5 py-10 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-7xl">
@@ -275,17 +313,21 @@ export default function PetaLaporan() {
         </div>
       </section>
 
-      {/* Main */}
+      {/* MAIN CONTENT */}
 
       <section className="px-5 py-8 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-7xl">
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-            {/* Filter */}
+            {/* ==================================
+                SIDEBAR FILTER
+            ================================== */}
 
             <aside className="rounded-xl border border-slate-200 bg-white p-5">
               <h2 className="mb-5 font-semibold text-slate-900">
                 Cari dan filter laporan
               </h2>
+
+              {/* SEARCH */}
 
               <label className="mb-2 block text-sm font-medium">
                 Cari lokasi atau laporan
@@ -293,6 +335,7 @@ export default function PetaLaporan() {
 
               <div className="relative mb-6">
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+
                 <input
                   type="search"
                   value={keyword}
@@ -301,6 +344,8 @@ export default function PetaLaporan() {
                   className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-600"
                 />
               </div>
+
+              {/* FILTER KATEGORI */}
 
               <fieldset className="mb-6">
                 <legend className="mb-3 text-sm font-medium">Kategori</legend>
@@ -314,13 +359,7 @@ export default function PetaLaporan() {
                         key={item.value}
                         type="button"
                         onClick={() =>
-                          toggleFilter(
-                            item.value,
-
-                            selectedCategory,
-
-                            setSelectedCategory,
-                          )
+                          toggleFilter(item.value, setSelectedCategory)
                         }
                         className={`rounded-md border px-3 py-2 text-xs transition ${
                           active
@@ -334,6 +373,8 @@ export default function PetaLaporan() {
                   })}
                 </div>
               </fieldset>
+
+              {/* FILTER STATUS */}
 
               <fieldset className="mb-6">
                 <legend className="mb-3 text-sm font-medium">
@@ -353,13 +394,7 @@ export default function PetaLaporan() {
                           type="checkbox"
                           checked={active}
                           onChange={() =>
-                            toggleFilter(
-                              item.value,
-
-                              selectedStatus,
-
-                              setSelectedStatus,
-                            )
+                            toggleFilter(item.value, setSelectedStatus)
                           }
                           className="accent-blue-700"
                         />
@@ -370,6 +405,8 @@ export default function PetaLaporan() {
                   })}
                 </div>
               </fieldset>
+
+              {/* JUMLAH LAPORAN DAN RESET */}
 
               <div className="border-t border-slate-100 pt-4">
                 <p className="text-sm text-slate-500">
@@ -382,7 +419,7 @@ export default function PetaLaporan() {
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm hover:bg-slate-50"
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm transition hover:bg-slate-50"
                 >
                   <FiRotateCcw size={15} />
                   Atur ulang filter
@@ -390,9 +427,13 @@ export default function PetaLaporan() {
               </div>
             </aside>
 
-            {/* Map and detail */}
+            {/* ==================================
+                MAP AND DETAIL
+            ================================== */}
 
             <div className="min-w-0 space-y-6">
+              {/* MAP */}
+
               <section>
                 {loading ? (
                   <div className="flex h-[520px] items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-500">
@@ -409,16 +450,17 @@ export default function PetaLaporan() {
                   />
                 )}
 
-                {/* Legend */}
+                {/* LEGEND */}
 
                 <div className="mt-3 flex flex-wrap gap-5 rounded-lg border border-slate-200 p-4 text-xs text-slate-600">
                   {statuses.map((item) => {
                     const colors: Record<string, string> = {
                       pending: "#D97706",
-
                       verified: "#059669",
-
                       rejected: "#DC2626",
+                      assigned: "#2563EB",
+                      in_progress: "#7C3AED",
+                      completed: "#059669",
                     };
 
                     return (
@@ -437,7 +479,9 @@ export default function PetaLaporan() {
                 </div>
               </section>
 
-              {/* Selected report */}
+              {/* ==================================
+                  SELECTED REPORT DETAIL
+              ================================== */}
 
               {selectedReport && (
                 <aside
@@ -446,7 +490,8 @@ export default function PetaLaporan() {
                   className="mx-auto w-full max-w-6xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-[180px_minmax(0,1fr)]">
-                    {/* Foto laporan */}
+                    {/* FOTO LAPORAN */}
+
                     <div className="relative min-h-40 overflow-hidden bg-slate-100 sm:min-h-0">
                       {photosLoading ? (
                         <div className="flex h-40 items-center justify-center text-xs text-slate-500 sm:h-full">
@@ -457,12 +502,11 @@ export default function PetaLaporan() {
                         <div className="grid h-40 grid-cols-2 gap-0.5 sm:absolute sm:inset-0 sm:h-full">
                           {reportPhotos
                             .filter((photo) => photo.photo_url)
-                            .map((photo, index) => (
+                            .slice(0, 1)
+                            .map((photo) => (
                               <div
                                 key={photo.id}
-                                className={`relative min-h-0 overflow-hidden ${
-                                  index === 0 ? "col-span-2" : "hidden"
-                                }`}
+                                className="relative col-span-2 min-h-0 overflow-hidden"
                               >
                                 <img
                                   src={photo.photo_url!}
@@ -474,42 +518,45 @@ export default function PetaLaporan() {
                                   loading="lazy"
                                 />
 
+                                {/* JUMLAH FOTO */}
+
                                 {reportPhotos.filter((item) => item.photo_url)
-                                  .length > 1 &&
-                                  index === 0 && (
-                                    <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-md bg-black/60 px-2.5 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
-                                      <Images size={14} />
-                                      {
-                                        reportPhotos.filter(
-                                          (item) => item.photo_url,
-                                        ).length
-                                      }{" "}
-                                      foto
-                                    </span>
-                                  )}
+                                  .length > 1 && (
+                                  <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-md bg-black/60 px-2.5 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+                                    <Images size={14} />
+                                    {
+                                      reportPhotos.filter(
+                                        (item) => item.photo_url,
+                                      ).length
+                                    }{" "}
+                                    foto
+                                  </span>
+                                )}
                               </div>
                             ))}
                         </div>
                       ) : (
                         <div className="flex h-40 flex-col items-center justify-center gap-2 text-slate-400 sm:h-full">
                           <ImageOff size={28} strokeWidth={1.5} />
-                          <span className="text-xs">
+
+                          <span className="text-xs text-center px-2">
                             {photosError ?? "Foto tidak tersedia"}
                           </span>
                         </div>
                       )}
                     </div>
 
-                    {/* Informasi laporan */}
+                    {/* INFORMASI LAPORAN */}
+
                     <div className="min-w-0 p-4 sm:p-5">
-                      {/* Metadata */}
+                      {/* METADATA */}
+
                       <div className="mb-3 flex flex-wrap items-center gap-2">
                         <span className="text-xs font-semibold tracking-wide text-slate-500">
                           {selectedReport.report_code ?? "Laporan publik"}
                         </span>
-
                         <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium capitalize text-slate-600">
-                          {selectedReport.category}
+                          {getCategoryLabel(selectedReport.category)}
                         </span>
 
                         <span
@@ -524,18 +571,21 @@ export default function PetaLaporan() {
                         </span>
                       </div>
 
-                      {/* Judul */}
+                      {/* JUDUL */}
+
                       <h2 className="text-lg font-semibold leading-snug text-slate-900">
                         {selectedReport.title}
                       </h2>
 
-                      {/* Lokasi dan tanggal */}
+                      {/* LOKASI DAN TANGGAL */}
+
                       <div className="mt-3 flex flex-col gap-2 text-sm text-slate-500">
                         <div className="flex items-start gap-2">
                           <MapPin
                             size={16}
                             className="mt-0.5 shrink-0 text-emerald-600"
                           />
+
                           <span className="min-w-0">
                             {[
                               selectedReport.address,
@@ -552,6 +602,7 @@ export default function PetaLaporan() {
                             size={16}
                             className="shrink-0 text-slate-400"
                           />
+
                           <span>
                             {selectedReport.incident_date
                               ? new Date(
@@ -566,21 +617,26 @@ export default function PetaLaporan() {
                         </div>
                       </div>
 
-                      {/* Deskripsi */}
+                      {/* DESKRIPSI */}
+
                       {selectedReport.description && (
                         <p className="mt-3 border-t border-slate-100 pt-3 text-sm leading-relaxed text-slate-600">
                           {selectedReport.description}
                         </p>
                       )}
 
-                      {/* Tombol detail */}
+                      {/* TOMBOL DETAIL */}
+
                       <div className="mt-4 border-t border-slate-100 pt-4">
                         <a
                           href={`/laporan/${selectedReport.report_code ?? selectedReport.id}`}
-                          className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 transition hover:text-emerald-800"
+                          className="group inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 transition hover:text-emerald-800"
                         >
                           Lihat Jejak Penanganan
-                          <ArrowUpRight size={17} />
+                          <ArrowUpRight
+                            size={17}
+                            className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                          />
                         </a>
                       </div>
                     </div>
