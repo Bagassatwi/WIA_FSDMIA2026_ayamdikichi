@@ -211,6 +211,7 @@ Berikut adalah akun yang dapat digunakan untuk mencoba aplikasi JEJAKPUBLIK.
 |---|---|---|
 | Administrator | admin@jejakpublik.id | `AdminJP#2026!` |
 | Petugas Lapangan | mdwikurniawan976@gmail.com | `Mdwikurniawan` |
+| Petugas Lapangan | petugas@jejak.publik | `petugas123` |
 
 ### Hak Akses Akun
 
@@ -221,9 +222,8 @@ Berikut adalah akun yang dapat digunakan untuk mencoba aplikasi JEJAKPUBLIK.
 
 - Akun di atas disediakan khusus untuk keperluan demonstrasi aplikasi JEJAKPUBLIK.
 - Data yang digunakan dalam demonstrasi merupakan data simulasi.
-- Jangan menggunakan akun demo untuk menyimpan informasi pribadi atau data sensitif.
-- Password akun demo dapat diperbarui secara berkala sesuai kebutuhan keamanan.
 - Setiap akun memiliki hak akses sesuai dengan perannya masing-masing.
+
 
 ## Project Information
 
