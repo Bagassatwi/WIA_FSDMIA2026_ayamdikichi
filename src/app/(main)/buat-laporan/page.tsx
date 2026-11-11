@@ -16,6 +16,8 @@ import {
   FiCheck,
 } from "react-icons/fi";
 
+import { Loader2 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import LocationPicker, {
   type LocationValue,
@@ -38,6 +40,21 @@ const labelClass = "mb-2 block text-sm font-medium text-gray-700";
 
 export default function BuatLaporanPage() {
   const [step, setStep] = useState(1);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    // Reset status pengiriman
+    setSubmitted(false);
+    setReportCode("");
+    setSubmitError("");
+    setStep(1);
+
+    // Reset seluruh data form
+    
+
+    // Reset foto yang dipilih
+    setPhotos([]);
+  }, [pathname]);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -1275,7 +1292,7 @@ export default function BuatLaporanPage() {
                         </span>
                       </label>
 
-                      <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                      {/* <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
                         <label className="flex cursor-pointer items-start gap-3">
                           <input
                             type="checkbox"
@@ -1298,7 +1315,7 @@ export default function BuatLaporanPage() {
                             </span>
                           </span>
                         </label>
-                      </div>
+                      </div> */}
                     </div>
                   </section>
                 )}
@@ -1347,8 +1364,17 @@ export default function BuatLaporanPage() {
                       disabled={isSubmitting}
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isSubmitting ? "Mengirim laporan..." : "Kirim Laporan"}
-                      {!isSubmitting && <FiArrowRight size={16} />}
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 size={17} className="animate-spin" />
+                          Mengirim laporan...
+                        </>
+                      ) : (
+                        <>
+                          Kirim Laporan
+                          <FiArrowRight size={16} />
+                        </>
+                      )}
                     </button>
                   )}
                 </div>

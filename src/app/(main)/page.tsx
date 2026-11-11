@@ -25,7 +25,7 @@ export default function HomePage() {
 
       <HowItWorks />
 
-      <CTA />
+      {/* <CTA /> */}
     </main>
   );
 }

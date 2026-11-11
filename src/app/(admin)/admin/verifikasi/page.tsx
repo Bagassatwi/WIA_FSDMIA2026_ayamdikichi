@@ -17,8 +17,9 @@ import {
   Loader2,
   RefreshCw,
   FileText,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-
 import { supabase } from "@/lib/supabase";
 
 // ==========================================
@@ -131,6 +132,8 @@ export default function VerifikasiPage() {
 
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("pending");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
@@ -489,6 +492,28 @@ export default function VerifikasiPage() {
   }, [reports, search, filterStatus]);
 
   // ==========================================
+  // PAGINATION
+  // ==========================================
+
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+
+  const paginatedReports = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+
+    return filteredReports.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredReports, currentPage]);
+
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, index) => index + 1,
+  );
+
+  // Reset halaman ketika pencarian atau filter berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterStatus]);
+
+  // ==========================================
   // STATISTICS
   // ==========================================
 
@@ -654,7 +679,7 @@ export default function VerifikasiPage() {
                 </tr>
               ) : (
                 <>
-                  {filteredReports.map((report) => {
+                  {paginatedReports.map((report) => {
                     const reportStatus = getStatus(report.status);
 
                     return (
@@ -719,7 +744,7 @@ export default function VerifikasiPage() {
                     );
                   })}
 
-                  {filteredReports.length === 0 && (
+                  {paginatedReports.length === 0 && (
                     <tr>
                       <td
                         colSpan={6}
@@ -735,18 +760,71 @@ export default function VerifikasiPage() {
           </table>
         </div>
 
-        <div className="border-t border-slate-200 px-5 py-4">
+        {/* TABLE FOOTER + PAGINATION */}
+        <div className="flex flex-col gap-4 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* Informasi jumlah laporan */}
           <p className="text-sm text-slate-500">
             Menampilkan{" "}
             <span className="font-semibold text-slate-700">
-              {filteredReports.length}
-            </span>{" "}
-            dari{" "}
+              {filteredReports.length === 0
+                ? 0
+                : (currentPage - 1) * itemsPerPage + 1}
+            </span>
+            {" - "}
             <span className="font-semibold text-slate-700">
-              {reports.length}
-            </span>{" "}
-            laporan
+              {Math.min(currentPage * itemsPerPage, filteredReports.length)}
+            </span>
+            {" dari "}
+            <span className="font-semibold text-slate-700">
+              {filteredReports.length}
+            </span>
+            {" laporan"}
           </p>
+
+          {/* Navigasi halaman */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              {/* Previous */}
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                className="rounded-lg border border-slate-200 p-2 text-slate-600 cursor-pointer transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Halaman sebelumnya"
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              {/* Nomor halaman */}
+              {pageNumbers.map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setCurrentPage(page)}
+                  className={`min-w-9 rounded-lg px-3 py-2 text-sm font-semibold cursor-pointer transition ${
+                    currentPage === page
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              {/* Next */}
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                }
+                className="rounded-lg border border-slate-200 p-2 text-slate-600 cursor-pointer transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Halaman berikutnya"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

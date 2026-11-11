@@ -4,6 +4,7 @@ import Sidebar from "./components/Sidebar";
 import Topbar from "./components/TopBar";
 import "./globals.css";
 import { Poppins } from "next/font/google";
+import { requireRole } from "@/lib/supabase/guard";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -32,7 +33,7 @@ export default async function DashboardLayout({
             <Topbar />
 
             {/* Page Content */}
-            <main className="p-6">
+            <main className="p-6">  
               {children}
             </main>
           </div>

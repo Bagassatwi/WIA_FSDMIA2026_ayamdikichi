@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   X,
   UserRound,
+  ChevronLeft,
+  ChevronRight,
   AlertCircle,
   Loader2,
 } from "lucide-react";
@@ -106,7 +108,8 @@ export default function LaporanPage() {
   const [status, setStatus] = useState("Semua Status");
   const [category, setCategory] = useState("Semua Kategori");
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   // Mengambil data laporan dari Supabase
   useEffect(() => {
     const fetchReports = async () => {
@@ -171,6 +174,25 @@ export default function LaporanPage() {
       return matchesSearch && matchesStatus && matchesCategory;
     });
   }, [reports, search, status, category]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+
+  const paginatedReports = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredReports.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredReports, currentPage]);
+
+  // Nomor halaman yang ditampilkan
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, index) => index + 1,
+  );
+
+  // Reset ke halaman pertama ketika pencarian atau filter berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, status, category]);
 
   // Statistik berdasarkan seluruh data Supabase
   const stats = [
@@ -335,7 +357,7 @@ export default function LaporanPage() {
                 </tr>
               ) : (
                 <>
-                  {filteredReports.map((report) => {
+                  {paginatedReports.map((report) => {
                     const reportStatus = getStatus(report.status);
 
                     return (
@@ -391,7 +413,7 @@ export default function LaporanPage() {
                             type="button"
                             title="Lihat detail laporan"
                             onClick={() => setSelectedReport(report)}
-                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
+                            className="inline-flex items-center cursor-pointer justify-center rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
                           >
                             <Eye size={17} />
                           </button>
@@ -400,7 +422,7 @@ export default function LaporanPage() {
                     );
                   })}
 
-                  {filteredReports.length === 0 && (
+                  {paginatedReports.length === 0 && (
                     <tr>
                       <td
                         colSpan={6}
@@ -417,18 +439,72 @@ export default function LaporanPage() {
         </div>
 
         {/* Table Footer */}
-        <div className="border-t border-slate-200 px-5 py-4">
+
+        {/* Table Footer + Pagination */}
+        <div className="flex flex-col gap-4 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* Informasi jumlah data */}
           <p className="text-sm text-slate-500">
             Menampilkan{" "}
             <span className="font-semibold text-slate-700">
-              {filteredReports.length}
-            </span>{" "}
-            dari{" "}
+              {filteredReports.length === 0
+                ? 0
+                : (currentPage - 1) * itemsPerPage + 1}
+            </span>
+            {" - "}
             <span className="font-semibold text-slate-700">
-              {reports.length}
-            </span>{" "}
-            laporan
+              {Math.min(currentPage * itemsPerPage, filteredReports.length)}
+            </span>
+            {" dari "}
+            <span className="font-semibold text-slate-700">
+              {filteredReports.length}
+            </span>
+            {" laporan"}
           </p>
+
+          {/* Navigasi halaman */}
+
+          {/* Navigasi halaman */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              {/* Previous */}
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                className="rounded-lg border border-slate-200 p-2 text-slate-600 cursor-pointer transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              {/* Nomor halaman */}
+              {pageNumbers.map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setCurrentPage(page)}
+                  className={`min-w-9 rounded-lg px-3 py-2 text-sm font-semibold cursor-pointer transition ${
+                    currentPage === page
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              {/* Next */}
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                }
+                className="rounded-lg border border-slate-200 p-2 text-slate-600 cursor-pointer transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

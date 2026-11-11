@@ -13,6 +13,8 @@ import {
   Phone,
   X,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   Pencil,
   AlertCircle,
@@ -65,6 +67,8 @@ export default function ManajemenPetugasPage() {
 
   const [savingEdit, setSavingEdit] = useState(false);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [showForm, setShowForm] = useState(false);
 
   const [fullName, setFullName] = useState("");
@@ -216,6 +220,27 @@ export default function ManajemenPetugasPage() {
       (officer.phone ?? "").toLowerCase().includes(keyword)
     );
   });
+
+  // =====================================================
+  // PAGINATION
+  // =====================================================
+
+  const totalPages = Math.ceil(filteredOfficers.length / itemsPerPage);
+
+  const paginatedOfficers = filteredOfficers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, index) => index + 1,
+  );
+
+  // Reset halaman ketika pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const activeCount = officers.filter((item) => item.is_active).length;
 
@@ -488,7 +513,7 @@ export default function ManajemenPetugasPage() {
                     </p>
                   </td>
                 </tr>
-              ) : filteredOfficers.length === 0 ? (
+              ) : paginatedOfficers.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}
@@ -498,7 +523,7 @@ export default function ManajemenPetugasPage() {
                   </td>
                 </tr>
               ) : (
-                filteredOfficers.map((officer) => (
+                paginatedOfficers.map((officer) => (
                   <tr key={officer.id} className="transition hover:bg-slate-50">
                     <td className="px-5 py-4">
                       <p className="text-sm font-semibold text-slate-800">
@@ -586,11 +611,71 @@ export default function ManajemenPetugasPage() {
           </table>
         </div>
 
-        <div className="border-t border-slate-100 px-5 py-4">
-          <p className="text-xs text-slate-500">
-            Menampilkan {filteredOfficers.length} dari {officers.length}{" "}
-            petugas.
+        {/* TABLE FOOTER + PAGINATION */}
+        <div className="flex flex-col gap-4 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* Informasi jumlah petugas */}
+          <p className="text-sm text-slate-500">
+            Menampilkan{" "}
+            <span className="font-semibold text-slate-700">
+              {filteredOfficers.length === 0
+                ? 0
+                : (currentPage - 1) * itemsPerPage + 1}
+            </span>
+            {" - "}
+            <span className="font-semibold text-slate-700">
+              {Math.min(currentPage * itemsPerPage, filteredOfficers.length)}
+            </span>
+            {" dari "}
+            <span className="font-semibold text-slate-700">
+              {filteredOfficers.length}
+            </span>
+            {" petugas"}
           </p>
+
+          {/* Navigasi halaman */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              {/* Previous */}
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                className="rounded-lg border border-slate-200 p-2 text-slate-600 cursor-pointer transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Halaman sebelumnya"
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              {/* Nomor halaman */}
+              {pageNumbers.map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setCurrentPage(page)}
+                  className={`min-w-9 rounded-lg px-3 py-2 text-sm font-semibold cursor-pointer transition ${
+                    currentPage === page
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              {/* Next */}
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                }
+                className="rounded-lg border border-slate-200 p-2 text-slate-600 cursor-pointer transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Halaman berikutnya"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -599,7 +684,7 @@ export default function ManajemenPetugasPage() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/40 p-4">
           <div className="my-auto w-full max-w-md rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-100 p-5">
+            <div className="flex items-center justify-between border-b cursor-pointer border-slate-100 p-5">
               <div>
                 <h2 className="font-bold text-slate-800">Tambah Petugas</h2>
 

@@ -1,5 +1,10 @@
-
-export type ReportStatus = "pending" | "verified" | "rejected";
+export type ReportStatus =
+  | "pending"
+  | "verified"
+  | "rejected"
+  | "assigned"
+  | "in_progress"
+  | "completed";
 
 export type ReportCategory =
   | "jalan"
@@ -7,7 +12,7 @@ export type ReportCategory =
   | "drain"
   | "lampu"
   | "ling";
-  
+
 export interface Report {
   id: string;
   report_code: string | null;

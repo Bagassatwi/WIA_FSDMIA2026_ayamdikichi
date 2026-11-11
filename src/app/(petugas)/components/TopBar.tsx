@@ -89,7 +89,7 @@ export default function Topbar() {
       </button>
 
       {/* Search */}
-      <div className="relative w-full max-w-[575px]">
+      {/* <div className="relative w-full max-w-[575px]">
         <Search
           className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           size={17}
@@ -99,7 +99,7 @@ export default function Topbar() {
           placeholder="Cari laporan (judul, ID, lokasi, atau pelapor)..."
           className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50/80 pl-10 pr-4 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white"
         />
-      </div>
+      </div> */}
 
       {/* Profile */}
       <div className="ml-auto flex items-center gap-5">

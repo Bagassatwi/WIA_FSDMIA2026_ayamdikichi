@@ -43,7 +43,7 @@ export default function Hero() {
       <div className="absolute -right-40 bottom-[-260px] -z-10 h-[420px] w-[700px] rounded-[50%] bg-[#c4e3ff]/80 blur-2xl" />
 
       {/* Main content */}
-      <div className="mx-auto grid min-h-[680px] max-w-7xl items-center gap-14 px-6 py-20 lg:grid-cols-[1fr_1fr] lg:px-12">
+      <div className="mx-auto grid min-h-[680px] max-w-7xl items-center gap-14  py-20 lg:grid-cols-[1fr_1fr] lg:px-12">
         {/* Left content */}
         <div className="relative z-10 max-w-xl">
           <div className="mb-7 flex items-center gap-4">
