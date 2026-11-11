@@ -1,6 +1,6 @@
 # JEJAKPUBLIK — Dari Laporan Menjadi Bukti
 
-**JEJAKPUBLIK** adalah platform pelaporan masyarakat untuk permasalahan infrastruktur dan lingkungan publik. Masyarakat dapat mengirim laporan tanpa harus membuat akun, memantau proses penanganan, serta melihat bukti penyelesaian melalui kode tiket laporan.
+**JEJAKPUBLIK** adalah platform pelaporan masyarakat untuk permasalahan infrastruktur dan lingkungan publik. Masyarakat dapat mengirim laporan tanpa harus membuat akun, memantau proses penanganan, serta melihat bukti penyelesaian melalui kode laporan.
 
 Platform ini dirancang untuk meningkatkan transparansi, mempermudah penyampaian aspirasi masyarakat, dan membantu proses tindak lanjut permasalahan publik secara terstruktur.
 
@@ -30,7 +30,7 @@ Platform ini dirancang untuk meningkatkan transparansi, mempermudah penyampaian 
 - Informasi dan pengenalan platform JEJAKPUBLIK.
 - Menampilkan laporan terbaru.
 - Formulir pelaporan tanpa registrasi akun.
-- Pelacakan laporan menggunakan kode tiket.
+- Pelacakan laporan menggunakan kode laporan.
 - Peta lokasi laporan.
 
 ### Public Reporting System
@@ -83,7 +83,7 @@ Platform ini dirancang untuk meningkatkan transparansi, mempermudah penyampaian 
 
 ### Report Tracking
 
-- Pelacakan laporan menggunakan kode tiket.
+- Pelacakan laporan menggunakan kode laporan.
 - Informasi status perkembangan laporan.
 - Informasi hasil penanganan.
 - Dokumentasi penyelesaian yang telah disetujui admin.
@@ -93,7 +93,7 @@ Platform ini dirancang untuk meningkatkan transparansi, mempermudah penyampaian 
 1. Masyarakat mengirim laporan tanpa akun.
 2. Sistem memeriksa kemungkinan laporan duplikat.
 3. Masyarakat dapat melanjutkan atau membatalkan laporan setelah menerima peringatan.
-4. Sistem menghasilkan kode tiket laporan secara otomatis.
+4. Sistem menghasilkan kode laporan secara otomatis.
 5. Admin melakukan verifikasi laporan.
 6. Admin menambahkan petugas dengan mengisi nama lengkap, email, dan nomor telepon.
 7. Sistem mengirimkan email undangan kepada petugas untuk membuat password sendiri.
@@ -102,7 +102,7 @@ Platform ini dirancang untuk meningkatkan transparansi, mempermudah penyampaian 
 10. Petugas melakukan penanganan dan mengirim dokumentasi.
 11. Admin memeriksa hasil pekerjaan.
 12. Admin menyetujui hasil atau meminta revisi.
-13. Masyarakat dapat memantau perkembangan dan bukti penyelesaian melalui kode tiket.
+13. Masyarakat dapat memantau perkembangan dan bukti penyelesaian melalui kode laporan.
 
 ## Report Status
 
@@ -223,7 +223,6 @@ Berikut adalah akun yang dapat digunakan untuk mencoba aplikasi JEJAKPUBLIK.
 - Akun di atas disediakan khusus untuk keperluan demonstrasi aplikasi JEJAKPUBLIK.
 - Data yang digunakan dalam demonstrasi merupakan data simulasi.
 - Setiap akun memiliki hak akses sesuai dengan perannya masing-masing.
-
 
 ## Project Information
 
